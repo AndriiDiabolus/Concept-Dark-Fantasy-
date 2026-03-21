@@ -26,7 +26,7 @@ func _ready() -> void:
 
 func test_player_initialization() -> void:
 	"""Тест инициализации игрока"""
-	var player = get_tree().root.get_child(0)
+	var player = get_tree().current_scene
 
 	if player == null:
 		_log_test("Player Initialization", false, "Player not found in scene")
@@ -48,7 +48,7 @@ func test_enemy_spawn() -> void:
 func test_player_movement() -> void:
 	"""Тест движения игрока"""
 	# Это нельзя полностью протестировать в headless, но проверяем что функция существует
-	var player = get_tree().root.get_child(0)
+	var player = get_tree().current_scene
 	if player.has_method("_update_movement"):
 		_log_test("Player Movement", true, "Movement method exists")
 	else:
@@ -56,7 +56,7 @@ func test_player_movement() -> void:
 
 func test_player_attack() -> void:
 	"""Тест атаки игрока"""
-	var player = get_tree().root.get_child(0)
+	var player = get_tree().current_scene
 	if player.has_method("_on_attack_input"):
 		_log_test("Player Attack", true, "Attack method exists")
 	else:
@@ -64,13 +64,13 @@ func test_player_attack() -> void:
 
 func test_blocking() -> void:
 	"""Тест блока"""
-	var player = get_tree().root.get_child(0)
+	var player = get_tree().current_scene
 	var has_blocking_var = player.is_blocking != null
 	_log_test("Player Block", has_blocking_var, "Blocking variable exists: %s" % has_blocking_var)
 
 func test_damage() -> void:
 	"""Тест получения урона"""
-	var player = get_tree().root.get_child(0)
+	var player = get_tree().current_scene
 	if player.has_method("take_damage"):
 		var initial_hp = player.current_hp
 		player.take_damage(10)
