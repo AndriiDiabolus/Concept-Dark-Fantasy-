@@ -81,17 +81,18 @@ func _input(event: InputEvent) -> void:
 
 #region MOVEMENT
 func _update_movement(delta: float) -> void:
-	# Используем Input.get_vector() — более надёжно в Godot 4
-	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var input_dir = Vector2.ZERO
 
-	# DEBUG: логируем один раз если есть движение
-	if input_dir.length() > 0:
-		print("DEBUG: Input detected: %v" % input_dir)
-
-	# Обновляем направление для анимации
-	if input_dir.x < 0:
+	# Читаем WASD input
+	if Input.is_key_pressed(KEY_W):
+		input_dir.y -= 1
+	if Input.is_key_pressed(KEY_S):
+		input_dir.y += 1
+	if Input.is_key_pressed(KEY_A):
+		input_dir.x -= 1
 		facing_right = false
-	elif input_dir.x > 0:
+	if Input.is_key_pressed(KEY_D):
+		input_dir.x += 1
 		facing_right = true
 
 	input_dir = input_dir.normalized()
