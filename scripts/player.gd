@@ -267,12 +267,27 @@ func _update_timers(delta: float) -> void:
 
 #region VISUAL & ANIMATION
 func _setup_visuals() -> void:
-	# TODO: Загружаем спрайты когда будут готовы
-	pass
+	# DEBUG: Добавляем простую визуализацию (пока нет спрайтов)
+	var sprite = Sprite2D.new()
+	add_child(sprite)
+
+	# Создаём простой прямоугольник для отладки
+	var canvas_item = CanvasItem.new()
+	add_child(canvas_item)
 
 func _update_animation() -> void:
-	# TODO: Переключаем анимации (idle, run, attack, block, etc)
-	pass
+	# DEBUG: Рисуем героя как прямоугольник
+	queue_redraw()
+
+func _draw() -> void:
+	# Рисуем героя красным квадратом
+	var color = Color.RED
+	if obsession_active:
+		color = Color.MAGENTA
+	elif is_blocking:
+		color = Color.BLUE
+
+	draw_rect(Rect2(-24, -32, 48, 64), color)
 
 func _play_attack_animation(combo_idx: int, duration: float) -> void:
 	# TODO: воспроизводим анимацию атаки

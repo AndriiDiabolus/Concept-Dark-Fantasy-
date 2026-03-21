@@ -155,8 +155,23 @@ func _update_timers(delta: float) -> void:
 		hit_flash_time -= delta
 
 func _update_animation() -> void:
-	# TODO: Переключаем анимации по состоянию
-	pass
+	# DEBUG: Рисуем врага как квадратик
+	queue_redraw()
+
+func _draw() -> void:
+	# Рисуем врага жёлтым квадратом
+	var color = Color.YELLOW
+	if state == "hit":
+		color = Color.RED
+	elif state == "dead":
+		color = Color.GRAY
+
+	var size = 40
+	draw_rect(Rect2(-size/2, -size/2, size, size), color)
+
+	# Рисуем HP полосу сверху
+	var hp_width = 40.0 * (float(current_hp) / float(max_hp))
+	draw_rect(Rect2(-20, -35, hp_width, 4), Color.GREEN)
 
 func get_status() -> Dictionary:
 	return {
