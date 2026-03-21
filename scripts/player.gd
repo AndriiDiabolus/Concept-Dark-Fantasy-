@@ -44,7 +44,13 @@ func _ready() -> void:
 	_setup_visuals()
 	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
+var _frame_count: int = 0
+
 func _process(delta: float) -> void:
+	_frame_count += 1
+	if _frame_count % 60 == 0:  # логируем каждую секунду
+		print("DEBUG: Player _process called, frame %d" % _frame_count)
+
 	if not is_alive:
 		return
 
@@ -66,6 +72,8 @@ func _input(event: InputEvent) -> void:
 
 	# Блок (R)
 	if event is InputEventKey:
+		print("DEBUG: Key pressed: keycode=%d, physical=%d" % [event.keycode, event.physical_keycode])
+
 		if event.keycode == KEY_R:
 			is_blocking = event.pressed
 			if is_blocking and not obsession_active:
@@ -81,18 +89,17 @@ func _input(event: InputEvent) -> void:
 
 #region MOVEMENT
 func _update_movement(delta: float) -> void:
-	var input_dir = Vector2.ZERO
+	# Используем Input.get_vector() — более надёжно в Godot 4
+	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 
-	# Читаем WASD input
-	if Input.is_key_pressed(KEY_W):
-		input_dir.y -= 1
-	if Input.is_key_pressed(KEY_S):
-		input_dir.y += 1
-	if Input.is_key_pressed(KEY_A):
-		input_dir.x -= 1
+	# DEBUG: логируем один раз если есть движение
+	if input_dir.length() > 0:
+		print("DEBUG: Input detected: %v" % input_dir)
+
+	# Обновляем направление для анимации
+	if input_dir.x < 0:
 		facing_right = false
-	if Input.is_key_pressed(KEY_D):
-		input_dir.x += 1
+	elif input_dir.x > 0:
 		facing_right = true
 
 	input_dir = input_dir.normalized()
