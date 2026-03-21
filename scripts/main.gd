@@ -41,6 +41,8 @@ func _process(delta: float) -> void:
 		C.STATE.WON:
 			pass
 
+	queue_redraw()  # Перерисовываем каждый кадр
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if event.keycode == KEY_ESCAPE:
@@ -192,6 +194,13 @@ func _update_play(delta: float) -> void:
 	# Обновляем камеру
 	if camera:
 		camera.global_position = camera.global_position.lerp(player.global_position, 0.1)
+
+	# Перерисовываем все элементы
+	if player:
+		player.queue_redraw()
+	for enemy in current_wave_enemies:
+		if enemy and is_instance_valid(enemy):
+			enemy.queue_redraw()
 
 	# Проверяем завершение волны
 	if current_wave_enemies.is_empty() and current_wave < C.LEVELS[current_level].enemy_waves.size():

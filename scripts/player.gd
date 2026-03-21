@@ -6,6 +6,7 @@ extends Node2D
 ## Позиция и движение
 var velocity: Vector2 = Vector2.ZERO
 var is_moving: bool = false
+var pressed_keys: Dictionary = {}  # Отслеживаем нажатые клавиши
 
 ## Health & Status
 var current_hp: int = C.PLAYER_HP_MAX
@@ -41,12 +42,17 @@ signal attack_hit(damage)
 
 func _ready() -> void:
 	print("🗡️ Yaromir READY at position: %v" % global_position)
+	set_process(true)  # КРИТИЧНО: включаем _process()
+	set_process_unhandled_input(true)  # Обработка unhandled input
 	_setup_visuals()
 	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
 func _process(delta: float) -> void:
 	if not is_alive:
 		return
+
+	# Проверяем input здесь напрямую
+	_handle_input()
 
 	# Обновляем таймеры
 	_update_timers(delta)
@@ -60,38 +66,59 @@ func _process(delta: float) -> void:
 	if current_hp <= 0:
 		_on_died()
 
-func _input(event: InputEvent) -> void:
-	if not is_alive:
-		return
+	# КРИТИЧНО: перерисовываем каждый кадр
+	queue_redraw()
 
-	# Блок (R)
+func _unhandled_input(event: InputEvent) -> void:
+	"""Обрабатываем input события напрямую"""
 	if event is InputEventKey:
-		if event.keycode == KEY_R:
-			is_blocking = event.pressed
-			if is_blocking and not obsession_active:
-				print("🛡️ Blocking enabled")
+		if event.pressed:
+			match event.keycode:
+				KEY_W:
+					pressed_keys[KEY_W] = true
+				KEY_A:
+					pressed_keys[KEY_A] = true
+				KEY_S:
+					pressed_keys[KEY_S] = true
+				KEY_D:
+					pressed_keys[KEY_D] = true
+		else:
+			match event.keycode:
+				KEY_W:
+					pressed_keys.erase(KEY_W)
+				KEY_A:
+					pressed_keys.erase(KEY_A)
+				KEY_S:
+					pressed_keys.erase(KEY_S)
+				KEY_D:
+					pressed_keys.erase(KEY_D)
 
-		# Одержимость (V)
-		if event.keycode == KEY_V and event.pressed:
-			_try_activate_obsession()
+func _handle_input() -> void:
+	"""pressed_keys уже заполнены из _unhandled_input()"""
+	# Блок (R)
+	is_blocking = pressed_keys.has(KEY_R)
 
-		# Атака (Space или другая клавиша)
-		if event.keycode == KEY_SPACE and event.pressed and not is_blocking:
-			_on_attack_input()
+	# Атака (Space)
+	if pressed_keys.has(KEY_SPACE) and not is_blocking:
+		_on_attack_input()
+
+	# Одержимость (V)
+	if pressed_keys.has(KEY_V):
+		_try_activate_obsession()
 
 #region MOVEMENT
 func _update_movement(delta: float) -> void:
 	var input_dir = Vector2.ZERO
 
-	# Читаем WASD input
-	if Input.is_key_pressed(KEY_W):
+	# Читаем WASD из pressed_keys
+	if pressed_keys.has(KEY_W):
 		input_dir.y -= 1
-	if Input.is_key_pressed(KEY_S):
+	if pressed_keys.has(KEY_S):
 		input_dir.y += 1
-	if Input.is_key_pressed(KEY_A):
+	if pressed_keys.has(KEY_A):
 		input_dir.x -= 1
 		facing_right = false
-	if Input.is_key_pressed(KEY_D):
+	if pressed_keys.has(KEY_D):
 		input_dir.x += 1
 		facing_right = true
 
@@ -107,10 +134,10 @@ func _update_movement(delta: float) -> void:
 	velocity = input_dir * current_speed
 	position += velocity * delta
 
-
 	# Ограничиваем позицию в пределах экрана (примерно)
 	position.x = clamp(position.x, 50, C.VIEWPORT_WIDTH - 50)
 	position.y = clamp(position.y, 50, C.VIEWPORT_HEIGHT - 50)
+	queue_redraw()  # Принудительно перерисовываем
 
 #endregion
 
@@ -295,6 +322,7 @@ func _update_animation() -> void:
 	queue_redraw()
 
 func _draw() -> void:
+
 	# Рисуем героя как квадрат (48x64)
 	var color = Color.RED
 	if obsession_active:
