@@ -49,7 +49,6 @@ func _ready() -> void:
 	attack_range = config.get("attack_range", 40)
 
 	print("👹 %s spawned | HP: %d | DMG: %d" % [enemy_type.capitalize(), current_hp, damage])
-	DebugLogger.log_info("Enemy.Spawn", "%s spawned at %v" % [enemy_type.capitalize(), global_position])
 
 	# Визуализация
 	_setup_visuals()
@@ -121,7 +120,6 @@ func _perform_attack() -> void:
 		return
 
 	print("⚔️ %s attacks!" % enemy_type.capitalize())
-	DebugLogger.log_info("Enemy.Attack", "%s attacks for %d damage" % [enemy_type.capitalize(), damage])
 
 	# Наносим урон игроку
 	if target.has_method("take_damage"):

@@ -41,7 +41,6 @@ signal attack_hit(damage)
 
 func _ready() -> void:
 	print("🗡️ Yaromir READY at position: %v" % global_position)
-	DebugLogger.log_info("Player", "Initialized at %v | HP: %d" % [global_position, current_hp])
 	_setup_visuals()
 	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
@@ -238,11 +237,9 @@ func take_damage(damage: int) -> void:
 
 	hp_changed.emit(current_hp)
 	print("❤️ HP: %d / %d" % [current_hp, C.PLAYER_HP_MAX])
-	DebugLogger.log_info("Player.Damage", "Took %d damage → HP: %d" % [actual_damage, current_hp])
 
 	# Проверяем смерть сразу
 	if current_hp <= 0:
-		DebugLogger.log_error("Player.Death", "Player died! HP: %d" % current_hp)
 		_on_died()
 
 func _check_dodge() -> bool:
