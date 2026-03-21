@@ -24,6 +24,7 @@ var level_timer: float = 0.0
 
 func _ready() -> void:
 	print("🎮 Sabbath - among life and death v0.1.0")
+	DebugLogger.log("=== GAME START ===")
 	_setup_scene()
 	_init_game()
 
@@ -205,19 +206,23 @@ func _on_enemy_died(enemy: Enemy) -> void:
 		enemies.erase(enemy)
 
 	print("📊 Enemies remaining: %d" % current_wave_enemies.size())
+	DebugLogger.log_info("Enemy.Died", "%s defeated | Remaining: %d" % [enemy.enemy_type, current_wave_enemies.size()])
 
 	if current_wave_enemies.is_empty():
 		waves_complete += 1
 		print("✓ Wave %d complete!" % waves_complete)
+		DebugLogger.log_info("Wave.Complete", "Wave %d completed" % waves_complete)
 
 func _on_player_died() -> void:
 	print("💀 GAME OVER!")
+	DebugLogger.log_error("Game.Over", "Player died after %.1f seconds" % level_timer)
 	current_state = C.STATE.LOST
 	get_tree().paused = true
 
 func _on_level_complete() -> void:
 	print("🏆 LEVEL COMPLETE!")
 	print("   Time: %.1f sec" % level_timer)
+	DebugLogger.log_info("Level.Complete", "Level %d completed in %.1f sec" % [current_level + 1, level_timer])
 	current_state = C.STATE.WON
 	get_tree().paused = true
 
