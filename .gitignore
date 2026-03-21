@@ -1,0 +1,20 @@
+# Godot
+.godot/
+*.gd.rpc_cache
+user://
+*.import
+export_presets.cfg
+.vscode/
+
+# System
+.DS_Store
+*.swp
+*~
+.env
+
+# Project specific
+.build/
+dist/
+*.pck
+*.exe
+*.zip
