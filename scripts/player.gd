@@ -266,28 +266,29 @@ func _update_timers(delta: float) -> void:
 #endregion
 
 #region VISUAL & ANIMATION
-func _setup_visuals() -> void:
-	# DEBUG: Добавляем простую визуализацию (пока нет спрайтов)
-	var sprite = Sprite2D.new()
-	add_child(sprite)
+var visual_rect: ColorRect
 
-	# Создаём простой прямоугольник для отладки
-	var canvas_item = CanvasItem.new()
-	add_child(canvas_item)
+func _setup_visuals() -> void:
+	# DEBUG: Добавляем ColorRect для видимости
+	visual_rect = ColorRect.new()
+	visual_rect.color = Color.RED
+	visual_rect.size = Vector2(48, 64)
+	visual_rect.position = Vector2(-24, -32)  # центрируем
+	add_child(visual_rect)
+
+	print("✓ Player visual initialized")
 
 func _update_animation() -> void:
-	# DEBUG: Рисуем героя как прямоугольник
-	queue_redraw()
+	# DEBUG: Обновляем цвет героя в зависимости от состояния
+	if not visual_rect:
+		return
 
-func _draw() -> void:
-	# Рисуем героя красным квадратом
-	var color = Color.RED
 	if obsession_active:
-		color = Color.MAGENTA
+		visual_rect.color = Color.MAGENTA
 	elif is_blocking:
-		color = Color.BLUE
-
-	draw_rect(Rect2(-24, -32, 48, 64), color)
+		visual_rect.color = Color.BLUE
+	else:
+		visual_rect.color = Color.RED
 
 func _play_attack_animation(combo_idx: int, duration: float) -> void:
 	# TODO: воспроизводим анимацию атаки

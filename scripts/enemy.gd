@@ -27,6 +27,8 @@ var attack_range: float
 
 ## Visual
 var hit_flash_time: float = 0.0
+var visual_rect: ColorRect
+var hp_bar: ColorRect
 
 ## Signals
 signal died(enemy)
@@ -49,6 +51,9 @@ func _ready() -> void:
 	attack_range = config.get("attack_range", 40)
 
 	print("👹 %s spawned | HP: %d | DMG: %d" % [enemy_type.capitalize(), current_hp, damage])
+
+	# Визуализация
+	_setup_visuals()
 
 func _process(delta: float) -> void:
 	if state == "dead":
@@ -154,24 +159,39 @@ func _update_timers(delta: float) -> void:
 	if hit_flash_time > 0:
 		hit_flash_time -= delta
 
+func _setup_visuals() -> void:
+	# DEBUG: ColorRect для врага
+	visual_rect = ColorRect.new()
+	visual_rect.color = Color.YELLOW
+	visual_rect.size = Vector2(40, 40)
+	visual_rect.position = Vector2(-20, -20)
+	add_child(visual_rect)
+
+	# HP полоса сверху
+	hp_bar = ColorRect.new()
+	hp_bar.color = Color.GREEN
+	hp_bar.size = Vector2(40, 4)
+	hp_bar.position = Vector2(-20, -25)
+	add_child(hp_bar)
+
+	print("   ✓ %s visual initialized" % enemy_type.capitalize())
+
 func _update_animation() -> void:
-	# DEBUG: Рисуем врага как квадратик
-	queue_redraw()
+	# DEBUG: Обновляем цвет врага и HP полосу
+	if not visual_rect or not hp_bar:
+		return
 
-func _draw() -> void:
-	# Рисуем врага жёлтым квадратом
-	var color = Color.YELLOW
+	# Обновляем цвет в зависимости от состояния
 	if state == "hit":
-		color = Color.RED
+		visual_rect.color = Color.RED
 	elif state == "dead":
-		color = Color.GRAY
+		visual_rect.color = Color.GRAY
+	else:
+		visual_rect.color = Color.YELLOW
 
-	var size = 40
-	draw_rect(Rect2(-size/2, -size/2, size, size), color)
-
-	# Рисуем HP полосу сверху
+	# Обновляем HP полосу
 	var hp_width = 40.0 * (float(current_hp) / float(max_hp))
-	draw_rect(Rect2(-20, -35, hp_width, 4), Color.GREEN)
+	hp_bar.size.x = hp_width
 
 func get_status() -> Dictionary:
 	return {
