@@ -82,6 +82,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					pressed_keys[KEY_S] = true
 				KEY_D:
 					pressed_keys[KEY_D] = true
+				KEY_R:
+					pressed_keys[KEY_R] = true
+				KEY_SPACE:
+					pressed_keys[KEY_SPACE] = true
 		else:
 			match event.keycode:
 				KEY_W:
@@ -92,6 +96,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					pressed_keys.erase(KEY_S)
 				KEY_D:
 					pressed_keys.erase(KEY_D)
+				KEY_R:
+					pressed_keys.erase(KEY_R)
+				KEY_SPACE:
+					pressed_keys.erase(KEY_SPACE)
 
 func _handle_input() -> void:
 	"""pressed_keys уже заполнены из _unhandled_input()"""
