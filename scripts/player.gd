@@ -267,6 +267,7 @@ func _update_timers(delta: float) -> void:
 #endregion
 
 #region VISUAL & ANIMATION
+
 func _setup_visuals() -> void:
 сдеайл	# Setup визуализации — всё рисуется через _draw()
 	print("✓ Player visual initialized")

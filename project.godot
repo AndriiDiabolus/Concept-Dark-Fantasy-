@@ -33,3 +33,5 @@ common/physics_engine="GodotPhysics2D"
 [rendering]
 
 renderer/rendering_mode="2d"
+viewport/canvas_textures/default_canvas_texture_filter=0
+environment/defaults/default_clear_color=Color(0.05, 0.05, 0.1, 1.0)

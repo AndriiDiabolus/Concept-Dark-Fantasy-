@@ -103,6 +103,15 @@ func _setup_scene() -> void:
 		ui_layer.name = "UILayer"
 		add_child(ui_layer)
 
+	# DEBUG: Добавляем тестовый ColorRect прямо в сцену чтобы проверить рендеринг
+	var test_rect = ColorRect.new()
+	test_rect.color = Color.WHITE
+	test_rect.size = Vector2(100, 100)
+	test_rect.position = Vector2(50, 50)
+	test_rect.name = "DEBUG_TestRect"
+	add_child(test_rect)
+	print("DEBUG: Test ColorRect added to scene")
+
 	# Подключаем сигналы игрока
 	if player.has_signal("player_died"):
 		if not player.player_died.is_connected(_on_player_died):
