@@ -168,3 +168,112 @@
 3. **Начало разработки:**
    - Player controller (WASD движение)
    - Dodge passive (5% chance, talent tree upgrade)
+
+### Сессия 4 — 2026-03-21 (текущая)
+**Сделано:** Инициализация Godot проекта, реализация базовой игромеханики.
+
+**Инициализация проекта:**
+- ✅ Создан Godot 4.6.1 проект
+- ✅ Структура папок: `scripts/` (constants.gd, player.gd, enemy.gd, main.gd), `scenes/`, `assets/`
+- ✅ Autoload `C` = `constants.gd` (глобальный доступ)
+- ✅ Node2D + `_draw()` рендеринг (без TileMap, чистые примитивы)
+- ✅ Система спавна врагов волнами
+
+**Реализовано:**
+- ✅ **Player controller:** WASD движение, блок (R), атака (Space), одержимость (V)
+- ✅ **Enemy AI:** 4 состояния (idle/chase/attack/dead), BFS для отслеживания
+- ✅ **Combat:** урон врагам, система HP, вражеские атаки
+- ✅ **Visual:** квадраты для персонажей (красный=герой, жёлтый=враг), полоски HP
+- ✅ **Архитектура:** RefCounted классы для врагов, signal-based коммуникация
+
+**Критические ошибки (НАЙДЕНЫ И ИСПРАВЛЕНЫ):**
+1. ❌→✅ **Player не двигалась:** set_process(true) не вызывалась в _ready()
+   - **Решение:** Добавлены `set_process(true)` и `set_process_unhandled_input(true)`
+   - **Root cause:** При присоединении script к Node2D через `set_script()`, обработка input/process не включается автоматически
+
+2. ❌→✅ **Input не доходил:** Input.is_key_pressed() не работал в canvas
+   - **Решение:** Перешли с `Input.is_key_pressed()` на `_unhandled_input()` с tracking в `pressed_keys` Dictionary
+   - **Root cause:** Node2D не получал input events из-за отсутствия `set_process_unhandled_input(true)`
+
+3. ❌→✅ **Visuals не обновлялись:** Позиция менялась, но на экране статично
+   - **Решение:** Добавлены `queue_redraw()` в `_process()` для player и врагов в main.gd
+   - **Root cause:** Node2D._draw() вызывается один раз при инициализации, потом нужен явный `queue_redraw()`
+
+4. ❌→✅ **autotest.gd конфликт:** `log()` функция конфликтовала с встроенной `log(float)` в GDScript
+   - **Решение:** Удален autotest.gd, removed из autoload
+   - **Root cause:** В GDScript 4.6 `log()` это встроенная функция для натурального логарифма
+
+5. ❌→✅ **debug_logger.gd конфликт:** Синий экран при инициализации autoload
+   - **Решение:** Отключен DebugLogger autoload, заменён на SystemMonitor
+   - **Root cause:** Конфликт между пользовательским `log()` методом и встроенной функцией
+
+**Известные проблемы (ОСТАЮТСЯ НА СЛЕДУЮЩУЮ СЕССИЮ):**
+- ⚠️ **Блок (R) и Атака (Space) не визуализируются** — логика работает но нет feedback
+- ⚠️ **Враги быстро убивают игрока** — баланс не настроен, нужна система сложности
+- ⚠️ **Нет визуализации урона, эффектов, анимаций** — только геометрические примитивы
+- ⚠️ **Система волн врагов работает но нет win/lose условий**
+
+**Архитектурные решения:**
+- **Node2D + _draw():** Выбрана за простоту (без TileMap, без CharacterBody2D), работает на 60 FPS без проблем
+- **_unhandled_input() для input:** Надежнее чем Input API, работает с keyboard events гарантированно
+- **pressed_keys Dictionary:** Отслеживаем нажатия WASD для smoothого движения (не может быть задержки между pressing/releasing)
+- **queue_redraw() каждый кадр:** Обязательно для Node2D, иначе позиция не обновляется визуально
+
+**Файловая структура (итого):**
+```
+scripts/
+  constants.gd         — враги (pehota:hp=25), player (speed=150), уровни (волны)
+  main.gd              — инициализация сцены, спавн врагов, камера, loop обновления
+  player.gd            — контроллер (движение, атака, блок, одержимость), HP система
+  enemy.gd             — базовый враг, AI (patrol/chase/attack), состояния
+scenes/
+  main.tscn            — Node2D + camera + player (создаётся в runtime)
+assets/
+  (пусто пока)
+```
+
+**Коммиты сессии:**
+```
+9b26216 fix: player movement — add set_process(true) to enable _process() calls
+a123a08 remove: delete autotest.gd file
+b85ee70 fix: disable autotest autoload to simplify debugging
+db1bf59 fix: remove debug_logger.gd (conflicts with built-in log() function)
+ba8afd2 fix: autotest.gd — remove incorrect .get() syntax
+c0389de fix: correct enemy spawning — load enemy.gd instead of missing pehota.gd
+0ab2611 feat: add AutoTest autoload for autonomous testing
+ffbe9b3 feat: add SystemMonitor autoload for full project monitoring
+```
+
+**Команды запуска (no changes):**
+```bash
+cd "/Users/andriidiablo/Documents/Dark Fantasy concept"
+# F5 в Godot (запуск) или
+godot --path . --debug
+```
+
+**Следующая сессия (ПРИОРИТЕТ):**
+1. 🔴 **CRITICAL:** Проверить работают ли Блок (R) и Атака (Space) — пользователь говорит что не работают
+   - Добавить визуальный feedback (герой меняет цвет при блоке, эффект при атаке)
+   - Проверить урон врагам при атаке (может быть не применяется)
+
+2. Система визуального feedback:
+   - Блок: герой становится синим
+   - Атака: вспышка, звук, анимация удара
+   - Урон получен: красная вспышка, число урона
+
+3. Баланс и сложность:
+   - Увеличить HP героя (200 вместо 100)
+   - Уменьшить урон врагов (2-3 вместо 4)
+   - Добавить регенерацию или медикиты
+
+4. UI минимальный:
+   - Полоска HP внизу экрана
+   - Счетчик волн/врагов
+
+5. Остальные враги:
+   - Musketeer (ranged, медленнее)
+   - Piker (tanky, дальняя атака)
+
+**Git status:**
+- 6 коммитов готовы к пушу в origin/main
+- Working tree clean
