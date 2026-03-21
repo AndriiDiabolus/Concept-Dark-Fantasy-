@@ -24,10 +24,8 @@ var level_timer: float = 0.0
 
 func _ready() -> void:
 	print("🎮 Sabbath - among life and death v0.1.0")
-	print("DEBUG: Main _ready called")
 	_setup_scene()
 	_init_game()
-	print("DEBUG: Game initialization complete")
 
 func _process(delta: float) -> void:
 	level_timer += delta
@@ -52,9 +50,6 @@ func _input(event: InputEvent) -> void:
 func _draw() -> void:
 	# Фон игры
 	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
-
-	# DEBUG: рисуем белый квадрат в левом верхнем углу чтобы убедиться что _draw вызывается
-	draw_rect(Rect2(10, 10, 50, 50), Color.WHITE)
 
 ## Scene Setup
 func _setup_scene() -> void:
@@ -102,15 +97,6 @@ func _setup_scene() -> void:
 		ui_layer = CanvasLayer.new()
 		ui_layer.name = "UILayer"
 		add_child(ui_layer)
-
-	# DEBUG: Добавляем тестовый ColorRect прямо в сцену чтобы проверить рендеринг
-	var test_rect = ColorRect.new()
-	test_rect.color = Color.WHITE
-	test_rect.size = Vector2(100, 100)
-	test_rect.position = Vector2(50, 50)
-	test_rect.name = "DEBUG_TestRect"
-	add_child(test_rect)
-	print("DEBUG: Test ColorRect added to scene")
 
 	# Подключаем сигналы игрока
 	if player.has_signal("player_died"):
