@@ -71,8 +71,7 @@ func _setup_scene() -> void:
 			return
 
 		print("Attaching script to player...")
-		var result = player.set_script(player_script)
-		print("DEBUG: set_script result: %s" % result)
+		player.set_script(player_script)
 		print("DEBUG: player has _ready? %s" % player.has_method("_ready"))
 		player.position = Vector2(C.VIEWPORT_WIDTH / 2, C.VIEWPORT_HEIGHT / 2)
 		print("✓ Player created at: %v" % player.position)
