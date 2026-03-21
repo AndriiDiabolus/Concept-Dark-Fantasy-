@@ -24,8 +24,10 @@ var level_timer: float = 0.0
 
 func _ready() -> void:
 	print("🎮 Sabbath - among life and death v0.1.0")
+	print("DEBUG: Main _ready called")
 	_setup_scene()
 	_init_game()
+	print("DEBUG: Game initialization complete")
 
 func _process(delta: float) -> void:
 	level_timer += delta
@@ -50,6 +52,9 @@ func _input(event: InputEvent) -> void:
 func _draw() -> void:
 	# Фон игры
 	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
+
+	# DEBUG: рисуем белый квадрат в левом верхнем углу чтобы убедиться что _draw вызывается
+	draw_rect(Rect2(10, 10, 50, 50), Color.WHITE)
 
 ## Scene Setup
 func _setup_scene() -> void:
