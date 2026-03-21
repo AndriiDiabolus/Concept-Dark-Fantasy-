@@ -31,7 +31,6 @@ var last_dodge_time: float = 0.0
 ## Animation & Visual
 var facing_right: bool = true
 var degrade_stage: int = 0  # 0, 1, 2, 3 (визуальная деградация)
-var visual_rect: ColorRect
 
 ## Signals
 signal hp_changed(new_hp)
@@ -268,16 +267,8 @@ func _update_timers(delta: float) -> void:
 #endregion
 
 #region VISUAL & ANIMATION
-var visual_rect: ColorRect
-
 func _setup_visuals() -> void:
-	# DEBUG: Добавляем ColorRect для видимости
-	visual_rect = ColorRect.new()
-	visual_rect.color = Color.RED
-	visual_rect.size = Vector2(48, 64)
-	visual_rect.position = Vector2(-24, -32)  # центрируем
-	add_child(visual_rect)
-
+	# Setup визуализации — всё рисуется через _draw()
 	print("✓ Player visual initialized")
 
 func _update_animation() -> void:
