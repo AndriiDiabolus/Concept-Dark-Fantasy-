@@ -22,9 +22,6 @@ var waves_complete: int = 0
 var current_wave_enemies: Array[Node2D] = []
 var level_timer: float = 0.0
 
-## Scenes (для создания во время runtime)
-var enemy_scene: PackedScene = preload("res://scenes/enemies/pehota.tscn")
-
 func _ready() -> void:
 	print("🎮 Sabbath - among life and death v0.1.0")
 	_setup_scene()
