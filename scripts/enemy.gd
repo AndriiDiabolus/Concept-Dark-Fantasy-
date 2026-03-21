@@ -116,7 +116,7 @@ func _perform_attack() -> void:
 		return
 
 	# Не атакуем мертвого игрока
-	if not target.get("is_alive", true):
+	if not target.is_alive:
 		return
 
 	print("⚔️ %s attacks!" % enemy_type.capitalize())
