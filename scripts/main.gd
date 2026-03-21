@@ -1,39 +1,43 @@
 ## main.gd — Sabbath - among life and death
-## Main game controller
-## Handles: game states, level management, UI, events
+## Main game controller & level manager
 
 extends Node2D
 
 ## Game State
-var current_state: int = C.STATE.SPLASH
+var current_state: int = C.STATE.PLAY
 var current_level: int = 0
-var player_hp: int = C.PLAYER_HP_MAX
 
 ## References
 var player: Node2D
 var camera: Camera2D
 var ui_layer: CanvasLayer
+var enemies: Array[Node2D] = []
 
-## Lifecycle
+## Level Management
+var current_wave: int = 0
+var waves_complete: int = 0
+var current_wave_enemies: Array[Node2D] = []
+var level_timer: float = 0.0
+
+## Scenes (для создания во время runtime)
+var enemy_scene: PackedScene = preload("res://scenes/enemies/pehota.tscn")
+
 func _ready() -> void:
-	_setup_input()
+	print("🎮 Sabbath - among life and death v0.1.0")
+	_setup_scene()
 	_init_game()
 
 func _process(delta: float) -> void:
+	level_timer += delta
+
 	match current_state:
-		C.STATE.SPLASH:
-			pass
 		C.STATE.PLAY:
 			_update_play(delta)
 		C.STATE.PAUSE:
 			pass
-		C.STATE.BOSS:
-			_update_boss(delta)
 		C.STATE.LOST:
 			pass
 		C.STATE.WON:
-			pass
-		C.STATE.CUTSCENE:
 			pass
 
 func _input(event: InputEvent) -> void:
@@ -42,56 +46,165 @@ func _input(event: InputEvent) -> void:
 			get_tree().paused = !get_tree().paused
 			current_state = C.STATE.PAUSE if get_tree().paused else C.STATE.PLAY
 
-## Initialization
-func _setup_input() -> void:
-	# Create input map if needed
-	if not InputMap.has_action(C.INPUT_MOVE_UP):
-		InputMap.add_action(C.INPUT_MOVE_UP)
-		InputMap.action_add_key_event(C.INPUT_MOVE_UP, InputEventKey.new() if KEY_W else KEY_W)
+## Scene Setup
+func _setup_scene() -> void:
+	# Создаём базовые узлы если их нет
+	if get_node_or_null("Player") == null:
+		player = Node2D.new()
+		player.name = "Player"
+		add_child(player)
+
+		# Добавляем player.gd скрипт
+		var player_script = load("res://scripts/player.gd")
+		player.set_script(player_script)
+		player.position = Vector2(C.VIEWPORT_WIDTH / 2, C.VIEWPORT_HEIGHT / 2)
+	else:
+		player = get_node("Player")
+
+	if get_node_or_null("Camera2D") == null:
+		camera = Camera2D.new()
+		camera.name = "Camera2D"
+		add_child(camera)
+		camera.make_current()
+	else:
+		camera = get_node("Camera2D")
+
+	# Привязываем камеру к игроку
+	if camera.get_parent() != self:
+		remove_child(camera)
+		add_child(camera)
+	camera.global_position = player.global_position
+
+	# Создаём UI слой
+	if get_node_or_null("UILayer") == null:
+		ui_layer = CanvasLayer.new()
+		ui_layer.name = "UILayer"
+		add_child(ui_layer)
+
+	# Подключаем сигналы игрока
+	if player.has_signal("player_died"):
+		if not player.player_died.is_connected(_on_player_died):
+			player.player_died.connect(_on_player_died)
 
 func _init_game() -> void:
-	print("🎮 Sabbath - among life and death v0.1.0")
-	print("Loading Level 1...")
+	print("📍 Loading Level 1: Zich Ruins")
 	load_level(0)
 
-## Level Management
+## Level Loading
 func load_level(level_idx: int) -> void:
 	current_level = level_idx
 	var level_data = C.LEVELS[level_idx]
-	print("📍 Loading: %s" % level_data.name)
 
-	# TODO: Load level scene
-	# TODO: Spawn player
-	# TODO: Spawn enemy waves
+	print("📍 Level %d: %s" % [level_idx + 1, level_data.name])
+	print("   Total waves: %d" % level_data.enemy_waves.size())
+
+	current_wave = 0
+	waves_complete = 0
+	level_timer = 0.0
+	current_wave_enemies.clear()
 
 	current_state = C.STATE.PLAY
+	_spawn_next_wave()
 
-## Game Updates
+## Enemy Spawning
+func _spawn_next_wave() -> void:
+	if current_wave >= C.LEVELS[current_level].enemy_waves.size():
+		_on_level_complete()
+		return
+
+	var wave_data = C.LEVELS[current_level].enemy_waves[current_wave]
+	print("🌊 Wave %d spawning..." % (current_wave + 1))
+
+	# Спавним врагов волны
+	for enemy_config in wave_data:
+		var enemy_type = enemy_config.get("type", "pehota")
+		var count = enemy_config.get("count", 1)
+
+		for i in range(count):
+			var enemy = _spawn_enemy(enemy_type)
+			if enemy:
+				current_wave_enemies.append(enemy)
+
+	current_wave += 1
+
+func _spawn_enemy(enemy_type: String) -> Node2D:
+	# Создаём врага в зависимости от типа
+	var enemy: Node2D
+
+	match enemy_type:
+		"pehota":
+			enemy = Enemy.new()
+			enemy.set_script(load("res://scripts/enemies/pehota.gd"))
+		"musketeer":
+			enemy = Enemy.new()
+			enemy.set_script(load("res://scripts/enemies/pehota.gd"))  # TODO: replace with musketeer
+		"piker":
+			enemy = Enemy.new()
+			enemy.set_script(load("res://scripts/enemies/pehota.gd"))  # TODO: replace with piker
+		_:
+			print("❌ Unknown enemy type: %s" % enemy_type)
+			return null
+
+	if enemy:
+		add_child(enemy)
+		enemy.global_position = Vector2(
+			randf_range(100, C.VIEWPORT_WIDTH - 100),
+			randf_range(100, C.VIEWPORT_HEIGHT - 100)
+		)
+
+		# Привязываем target (игрок)
+		enemy.target = player
+
+		# Подключаем сигнал смерти
+		if enemy.has_signal("died"):
+			if not enemy.died.is_connected(_on_enemy_died):
+				enemy.died.connect(_on_enemy_died)
+
+		enemies.append(enemy)
+		print("   ✓ %s spawned at %v" % [enemy_type.capitalize(), enemy.global_position])
+
+	return enemy
+
+## Game Loop
 func _update_play(delta: float) -> void:
-	# TODO: Update game logic per frame
-	pass
+	# Обновляем камеру
+	if camera:
+		camera.global_position = camera.global_position.lerp(player.global_position, 0.1)
 
-func _update_boss(delta: float) -> void:
-	# TODO: Update boss fight logic
-	pass
+	# Проверяем завершение волны
+	if current_wave_enemies.is_empty() and current_wave < C.LEVELS[current_level].enemy_waves.size():
+		await get_tree().create_timer(1.0).timeout  # пауза 1 сек между волнами
+		_spawn_next_wave()
 
-## Player Callbacks
-func on_player_attack_hit(damage: int) -> void:
-	print("💥 Attack hit! Damage: %d" % damage)
+## Callbacks
+func _on_enemy_died(enemy: Enemy) -> void:
+	if enemy in current_wave_enemies:
+		current_wave_enemies.erase(enemy)
+	if enemy in enemies:
+		enemies.erase(enemy)
 
-func on_player_took_damage(damage: int) -> void:
-	player_hp -= damage
-	print("❤️ Player HP: %d" % player_hp)
-	if player_hp <= 0:
-		_on_player_died()
+	print("📊 Enemies remaining: %d" % current_wave_enemies.size())
+
+	if current_wave_enemies.is_empty():
+		waves_complete += 1
+		print("✓ Wave %d complete!" % waves_complete)
 
 func _on_player_died() -> void:
-	print("💀 Game Over!")
+	print("💀 GAME OVER!")
 	current_state = C.STATE.LOST
+	get_tree().paused = true
+
+func _on_level_complete() -> void:
+	print("🏆 LEVEL COMPLETE!")
+	print("   Time: %.1f sec" % level_timer)
+	current_state = C.STATE.WON
+	get_tree().paused = true
 
 ## Debug
 func _print_game_state() -> void:
 	print("=== GAME STATE ===")
-	print("Level: %d" % current_level)
-	print("State: %s" % C.STATE.keys()[current_state])
-	print("Player HP: %d / %d" % [player_hp, C.PLAYER_HP_MAX])
+	print("Level: %d" % (current_level + 1))
+	print("Wave: %d / %d" % [waves_complete, C.LEVELS[current_level].enemy_waves.size()])
+	print("Enemies: %d" % current_wave_enemies.size())
+	if player:
+		print("Player: %s" % str(player.get_status()))
