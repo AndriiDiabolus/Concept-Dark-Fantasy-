@@ -80,6 +80,7 @@ func _update_ai(delta: float) -> void:
 			velocity = Vector2.ZERO
 			if distance_to_target <= chase_range:
 				state = "chase"
+				print("🔔 %s: detected player at %.0f px, CHASE!" % [enemy_type, distance_to_target])
 
 		"chase":
 			_move_towards_target(delta)

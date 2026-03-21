@@ -107,6 +107,10 @@ func _update_movement(delta: float) -> void:
 	velocity = input_dir * current_speed
 	position += velocity * delta
 
+	# DEBUG
+	if is_moving:
+		print("Player moving: %v → pos: %v" % [input_dir, position])
+
 	# Ограничиваем позицию в пределах экрана (примерно)
 	position.x = clamp(position.x, 50, C.VIEWPORT_WIDTH - 50)
 	position.y = clamp(position.y, 50, C.VIEWPORT_HEIGHT - 50)
@@ -115,11 +119,14 @@ func _update_movement(delta: float) -> void:
 
 #region ATTACK
 func _on_attack_input() -> void:
+	print("DEBUG: Attack input received")
 	if is_blocking or is_recovering or obsession_cooldown > 0:
+		print("DEBUG: Attack blocked (blocking=%s, recovering=%s, cooldown=%f)" % [is_blocking, is_recovering, obsession_cooldown])
 		return
 
 	# Проверяем cooldown
 	if attack_cooldown > 0:
+		print("DEBUG: Attack on cooldown: %.2f" % attack_cooldown)
 		return
 
 	# Увеличиваем комбо
