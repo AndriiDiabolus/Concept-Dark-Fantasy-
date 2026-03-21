@@ -31,6 +31,7 @@ var last_dodge_time: float = 0.0
 ## Animation & Visual
 var facing_right: bool = true
 var degrade_stage: int = 0  # 0, 1, 2, 3 (визуальная деградация)
+var visual_rect: ColorRect
 
 ## Signals
 signal hp_changed(new_hp)
@@ -280,16 +281,23 @@ func _setup_visuals() -> void:
 	print("✓ Player visual initialized")
 
 func _update_animation() -> void:
-	# DEBUG: Обновляем цвет героя в зависимости от состояния
-	if not visual_rect:
-		return
+	# Обновляем отрисовку
+	queue_redraw()
 
+func _draw() -> void:
+	# Рисуем героя как квадрат (48x64)
+	var color = Color.RED
 	if obsession_active:
-		visual_rect.color = Color.MAGENTA
+		color = Color.MAGENTA
 	elif is_blocking:
-		visual_rect.color = Color.BLUE
-	else:
-		visual_rect.color = Color.RED
+		color = Color.BLUE
+
+	# Рисуем квадрат 48x64 с центром в (0,0)
+	draw_rect(Rect2(-24, -32, 48, 64), color)
+
+	# Рисуем HP полосу внизу
+	var hp_percent = float(current_hp) / float(C.PLAYER_HP_MAX)
+	draw_rect(Rect2(-24, 35, 48 * hp_percent, 4), Color.GREEN)
 
 func _play_attack_animation(combo_idx: int, duration: float) -> void:
 	# TODO: воспроизводим анимацию атаки
