@@ -40,8 +40,9 @@ signal player_died
 signal attack_hit(damage)
 
 func _ready() -> void:
-	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
+	print("🗡️ Yaromir READY at position: %v" % global_position)
 	_setup_visuals()
+	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
 func _process(delta: float) -> void:
 	if not is_alive:

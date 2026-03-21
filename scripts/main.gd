@@ -58,6 +58,7 @@ func _setup_scene() -> void:
 		var player_script = load("res://scripts/player.gd")
 		player.set_script(player_script)
 		player.position = Vector2(C.VIEWPORT_WIDTH / 2, C.VIEWPORT_HEIGHT / 2)
+		print("✓ Player created at: %v" % player.position)
 	else:
 		player = get_node("Player")
 
