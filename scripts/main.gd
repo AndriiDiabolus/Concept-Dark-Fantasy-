@@ -3,6 +3,9 @@
 
 extends Node2D
 
+# Используем Enemy из enemy.gd
+var Enemy = preload("res://scripts/enemy.gd")
+
 ## Game State
 var current_state: int = C.STATE.PLAY
 var current_level: int = 0

@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://d3kl5ojjn6mjd"]
+
+[ext_resource type="Script" path="res://scripts/main.gd"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("res://scripts/main.gd")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(1, 1)
+
+[node name="UILayer" type="CanvasLayer" parent="."]

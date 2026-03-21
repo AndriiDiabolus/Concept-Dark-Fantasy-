@@ -180,9 +180,8 @@ func _end_obsession() -> void:
 
 	print("🔄 Recovery: 2 sec on knees | Cooldown: 2 min")
 
-	# Запускаем 2-сек уязвимость
-	await get_tree().create_timer(C.PLAYER_OBSESSION_RECOVERY).timeout
-	is_recovering = false
+	# Запускаем 2-сек уязвимость (асинхронно)
+	_recovery_timer()
 
 func _update_obsession_bar() -> void:
 	# Проверяем можем ли перейти на следующий уровень
@@ -243,6 +242,13 @@ func _check_dodge() -> bool:
 		last_dodge_time = 0.0
 		return true
 	return false
+
+#endregion
+
+#region ASYNC HELPERS
+func _recovery_timer() -> void:
+	await get_tree().create_timer(C.PLAYER_OBSESSION_RECOVERY).timeout
+	is_recovering = false
 
 #endregion
 

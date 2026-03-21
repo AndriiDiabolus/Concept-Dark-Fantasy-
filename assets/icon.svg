@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" fill="#1a1a2e"/>
+
+  <!-- Sword (Yaromir) -->
+  <g transform="translate(64, 64)">
+    <!-- Blade -->
+    <path d="M -4 -30 L -2 20 L 0 20 L 2 -30 Z" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
+
+    <!-- Cross guard -->
+    <rect x="-12" y="18" width="24" height="4" fill="#d4af37" stroke="#b8860b" stroke-width="1"/>
+
+    <!-- Handle -->
+    <rect x="-3" y="22" width="6" height="18" fill="#8b4513" stroke="#654321" stroke-width="1"/>
+
+    <!-- Pommel -->
+    <circle cx="0" cy="44" r="5" fill="#d4af37" stroke="#b8860b" stroke-width="1"/>
+
+    <!-- Purple glow (obsession) -->
+    <circle cx="0" cy="0" r="35" fill="none" stroke="#9933ff" stroke-width="2" opacity="0.5"/>
+
+    <!-- Text -->
+    <text x="0" y="55" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#d4af37" text-anchor="middle">SABBATH</text>
+  </g>
+</svg>
