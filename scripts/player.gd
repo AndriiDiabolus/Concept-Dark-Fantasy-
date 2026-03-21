@@ -132,6 +132,19 @@ func _on_attack_input() -> void:
 
 	print("⚔️ Attack #%d | Damage: %d" % [attack_combo + 1, damage])
 
+	# Наносим урон врагам в радиусе атаки
+	var attack_radius = 60.0  # пиксели
+	var hit_count = 0
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy and global_position.distance_to(enemy.global_position) <= attack_radius:
+			if enemy.has_method("take_damage"):
+				enemy.take_damage(damage)
+				hit_count += 1
+
+	if hit_count > 0:
+		print("💥 Hit %d enemies!" % hit_count)
+		attack_hit.emit(damage)
+
 	# Заполняем одержимость
 	if obsession_level < C.PLAYER_OBSESSION_LEVELS:
 		obsession_fill += C.PLAYER_OBSESSION_FILL_PER_ATTACK

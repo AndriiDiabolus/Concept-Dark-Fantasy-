@@ -50,6 +50,9 @@ func _ready() -> void:
 
 	print("👹 %s spawned | HP: %d | DMG: %d" % [enemy_type.capitalize(), current_hp, damage])
 
+	# Добавляем в группу для поиска
+	add_to_group("enemies")
+
 	# Визуализация
 	_setup_visuals()
 

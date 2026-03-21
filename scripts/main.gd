@@ -149,40 +149,41 @@ func _spawn_next_wave() -> void:
 	current_wave += 1
 
 func _spawn_enemy(enemy_type: String) -> Node2D:
-	# Создаём врага в зависимости от типа
-	var enemy: Node2D
+	# Проверяем валидность типа врага
+	if not C.ENEMY_TYPES.has(enemy_type):
+		print("❌ Unknown enemy type: %s" % enemy_type)
+		return null
 
-	match enemy_type:
-		"pehota":
-			enemy = Enemy.new()
-			enemy.set_script(load("res://scripts/enemies/pehota.gd"))
-		"musketeer":
-			enemy = Enemy.new()
-			enemy.set_script(load("res://scripts/enemies/pehota.gd"))  # TODO: replace with musketeer
-		"piker":
-			enemy = Enemy.new()
-			enemy.set_script(load("res://scripts/enemies/pehota.gd"))  # TODO: replace with piker
-		_:
-			print("❌ Unknown enemy type: %s" % enemy_type)
-			return null
+	# Создаём врага через enemy.gd
+	var enemy: Node2D = Node2D.new()
+	var enemy_script = load("res://scripts/enemy.gd")
+	if enemy_script == null:
+		print("❌ Could not load enemy.gd script!")
+		return null
 
-	if enemy:
-		add_child(enemy)
-		enemy.global_position = Vector2(
-			randf_range(100, C.VIEWPORT_WIDTH - 100),
-			randf_range(100, C.VIEWPORT_HEIGHT - 100)
-		)
+	enemy.set_script(enemy_script)
+	enemy.enemy_type = enemy_type  # Устанавливаем тип до _ready()
 
-		# Привязываем target (игрок)
-		enemy.target = player
+	add_child(enemy)
+	enemy.global_position = Vector2(
+		randf_range(100, C.VIEWPORT_WIDTH - 100),
+		randf_range(100, C.VIEWPORT_HEIGHT - 100)
+	)
 
-		# Подключаем сигнал смерти
-		if enemy.has_signal("died"):
-			if not enemy.died.is_connected(_on_enemy_died):
-				enemy.died.connect(_on_enemy_died)
+	# Инициализируем врага (загружает конфиг из C.ENEMY_TYPES)
+	if enemy.has_method("_ready"):
+		enemy._ready()
 
-		enemies.append(enemy)
-		print("   ✓ %s spawned at %v" % [enemy_type.capitalize(), enemy.global_position])
+	# Привязываем target (игрок)
+	enemy.target = player
+
+	# Подключаем сигнал смерти
+	if enemy.has_signal("died"):
+		if not enemy.died.is_connected(_on_enemy_died):
+			enemy.died.connect(_on_enemy_died)
+
+	enemies.append(enemy)
+	print("   ✓ %s spawned at %v" % [enemy_type.capitalize(), enemy.global_position])
 
 	return enemy
 
@@ -198,7 +199,7 @@ func _update_play(delta: float) -> void:
 		_spawn_next_wave()
 
 ## Callbacks
-func _on_enemy_died(enemy: Enemy) -> void:
+func _on_enemy_died(enemy: Node2D) -> void:
 	if enemy in current_wave_enemies:
 		current_wave_enemies.erase(enemy)
 	if enemy in enemies:
