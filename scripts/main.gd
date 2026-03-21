@@ -29,6 +29,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	level_timer += delta
+	queue_redraw()
 
 	match current_state:
 		C.STATE.PLAY:
@@ -45,6 +46,10 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			get_tree().paused = !get_tree().paused
 			current_state = C.STATE.PAUSE if get_tree().paused else C.STATE.PLAY
+
+func _draw() -> void:
+	# Фон игры
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
 
 ## Scene Setup
 func _setup_scene() -> void:
