@@ -237,6 +237,10 @@ func take_damage(damage: int) -> void:
 	hp_changed.emit(current_hp)
 	print("❤️ HP: %d / %d" % [current_hp, C.PLAYER_HP_MAX])
 
+	# Проверяем смерть сразу
+	if current_hp <= 0:
+		_on_died()
+
 func _check_dodge() -> bool:
 	# Пассивный уклон с 5% шансом
 	if randf() < C.PLAYER_DODGE_CHANCE:
