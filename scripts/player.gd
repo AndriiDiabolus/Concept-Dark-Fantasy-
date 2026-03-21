@@ -44,13 +44,7 @@ func _ready() -> void:
 	_setup_visuals()
 	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
-var _frame_count: int = 0
-
 func _process(delta: float) -> void:
-	_frame_count += 1
-	if _frame_count % 60 == 0:  # логируем каждую секунду
-		print("DEBUG: Player _process called, frame %d" % _frame_count)
-
 	if not is_alive:
 		return
 
@@ -72,8 +66,6 @@ func _input(event: InputEvent) -> void:
 
 	# Блок (R)
 	if event is InputEventKey:
-		print("DEBUG: Key pressed: keycode=%d, physical=%d" % [event.keycode, event.physical_keycode])
-
 		if event.keycode == KEY_R:
 			is_blocking = event.pressed
 			if is_blocking and not obsession_active:
@@ -114,9 +106,6 @@ func _update_movement(delta: float) -> void:
 	velocity = input_dir * current_speed
 	position += velocity * delta
 
-	# DEBUG
-	if is_moving:
-		print("Player moving: %v → pos: %v" % [input_dir, position])
 
 	# Ограничиваем позицию в пределах экрана (примерно)
 	position.x = clamp(position.x, 50, C.VIEWPORT_WIDTH - 50)
@@ -126,14 +115,11 @@ func _update_movement(delta: float) -> void:
 
 #region ATTACK
 func _on_attack_input() -> void:
-	print("DEBUG: Attack input received")
 	if is_blocking or is_recovering or obsession_cooldown > 0:
-		print("DEBUG: Attack blocked (blocking=%s, recovering=%s, cooldown=%f)" % [is_blocking, is_recovering, obsession_cooldown])
 		return
 
 	# Проверяем cooldown
 	if attack_cooldown > 0:
-		print("DEBUG: Attack on cooldown: %.2f" % attack_cooldown)
 		return
 
 	# Увеличиваем комбо
