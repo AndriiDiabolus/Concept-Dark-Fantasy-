@@ -26,17 +26,17 @@ func _ready() -> void:
 
 func test_player_initialization() -> void:
 	"""Тест инициализации игрока"""
-	var player = get_tree().get_first_child_in_group("player") if has_meta("player") else null
+	var player = get_tree().root.get_child(0)
 
 	if player == null:
 		_log_test("Player Initialization", false, "Player not found in scene")
 		return
 
-	var has_hp = player.has_meta("current_hp") or player.get("current_hp") != null
+	var has_hp = player.has_method("take_damage")
 	var has_position = player.global_position != Vector2.ZERO
 
 	_log_test("Player Initialization", has_hp and has_position,
-		"HP: %s, Position: %v" % [player.get("current_hp", "?"), player.global_position])
+		"HP: %s, Position: %v" % [player.current_hp if has_hp else "?", player.global_position])
 
 func test_enemy_spawn() -> void:
 	"""Тест спавна врагов"""
@@ -65,16 +65,16 @@ func test_player_attack() -> void:
 func test_blocking() -> void:
 	"""Тест блока"""
 	var player = get_tree().root.get_child(0)
-	var has_blocking_var = player.get("is_blocking") != null
+	var has_blocking_var = player.is_blocking != null
 	_log_test("Player Block", has_blocking_var, "Blocking variable exists: %s" % has_blocking_var)
 
 func test_damage() -> void:
 	"""Тест получения урона"""
 	var player = get_tree().root.get_child(0)
 	if player.has_method("take_damage"):
-		var initial_hp = player.get("current_hp", 0)
+		var initial_hp = player.current_hp
 		player.take_damage(10)
-		var final_hp = player.get("current_hp", 0)
+		var final_hp = player.current_hp
 		var damage_applied = initial_hp > final_hp
 		_log_test("Damage System", damage_applied,
 			"HP: %d → %d (damage applied: %s)" % [initial_hp, final_hp, damage_applied])
