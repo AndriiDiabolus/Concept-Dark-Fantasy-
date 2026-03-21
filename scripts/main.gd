@@ -48,19 +48,30 @@ func _input(event: InputEvent) -> void:
 
 ## Scene Setup
 func _setup_scene() -> void:
+	print("=== SETTING UP SCENE ===")
+
 	# Создаём базовые узлы если их нет
 	if get_node_or_null("Player") == null:
+		print("Creating Player node...")
 		player = Node2D.new()
 		player.name = "Player"
 		add_child(player)
+		print("Player node added to scene")
 
 		# Добавляем player.gd скрипт
+		print("Loading player script...")
 		var player_script = load("res://scripts/player.gd")
+		if player_script == null:
+			print("ERROR: Could not load player script!")
+			return
+
+		print("Attaching script to player...")
 		player.set_script(player_script)
 		player.position = Vector2(C.VIEWPORT_WIDTH / 2, C.VIEWPORT_HEIGHT / 2)
 		print("✓ Player created at: %v" % player.position)
 	else:
 		player = get_node("Player")
+		print("Player already exists in scene")
 
 	if get_node_or_null("Camera2D") == null:
 		camera = Camera2D.new()
