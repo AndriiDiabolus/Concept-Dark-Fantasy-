@@ -20,6 +20,7 @@ config/icon="res://assets/icon.svg"
 
 C="*res://scripts/constants.gd"
 SystemMonitor="*res://scripts/system_monitor.gd"
+AutoTest="*res://scripts/autotest.gd"
 # DebugLogger="*res://scripts/debug_logger.gd"
 
 [display]
