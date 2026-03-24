@@ -337,10 +337,19 @@ func _draw() -> void:
 	# Определяем цвет героя в зависимости от состояния
 	var color = Color(0.8, 0.6, 0.4)  # Кожа
 	var armor_color = Color(0.3, 0.2, 0.1)  # Доспехи (коричневые)
+	var alpha = 1.0
 
 	if obsession_active:
 		color = Color(1.0, 0.0, 1.0)  # Фиолетовый при одержимости
 		armor_color = Color(1.0, 0.2, 1.0)
+
+	# При уклоне - полупрозрачность
+	if last_dodge_time < 0.15:
+		alpha = 0.5 + sin(last_dodge_time * 10.0) * 0.3  # Мерцание
+
+	# Применяем альфа-канал
+	color.a = alpha
+	armor_color.a = alpha
 
 	# Базовая поза
 	var leg_offset_y = 0.0
@@ -390,11 +399,6 @@ func _draw() -> void:
 	var hp_percent = float(current_hp) / float(C.PLAYER_HP_MAX)
 	draw_rect(Rect2(-24, -40, 48 * hp_percent, 3), Color.GREEN)
 	draw_rect(Rect2(-24, -40, 48, 3), Color(0.2, 0.2, 0.2))
-
-	# При уклоне - прозрачность/эффект
-	if last_dodge_time < 0.15:
-		# Недавний уклон - немного прозрачнее
-		modulate = Color(1.0, 1.0, 1.0, 0.7)
 
 	# При блоке - подсветка
 	if is_blocking:
