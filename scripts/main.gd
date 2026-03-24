@@ -63,6 +63,9 @@ func _draw() -> void:
 		_:
 			draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
 
+	# Рисуем HUD поверх всего
+	_draw_hud()
+
 ## Scene Setup
 func _setup_scene() -> void:
 	print("=== SETTING UP SCENE ===")
@@ -331,6 +334,62 @@ func _draw_house_ruin(pos: Vector2, w: float, h: float, col: Color) -> void:
 		Vector2(pos.x + w/2, pos.y - h),
 	])
 	draw_colored_polygon(roof, Color(0.1, 0.1, 0.1))
+
+## HUD
+func _draw_hud() -> void:
+	if not player:
+		return
+
+	# Фон HUD (полоса вверху)
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, 60), Color(0.05, 0.05, 0.08, 0.8))
+	draw_line(Vector2(0, 60), Vector2(C.VIEWPORT_WIDTH, 60), Color(0.5, 0.4, 0.3), 2.0)
+
+	# HP (слева)
+	draw_string(get_theme_default_font(), Vector2(20, 25), "HP: %d/%d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+
+	# Level и Wave (в центре)
+	var level_text = "Level %d | Wave %d/%d" % [
+		current_level + 1,
+		waves_complete + 1,
+		C.LEVELS[current_level].enemy_waves.size()
+	]
+	draw_string(get_theme_default_font(), Vector2(C.VIEWPORT_WIDTH/2 - 150, 25), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.8, 0.8, 0.8))
+
+	# Время (справа)
+	var time_str = "Time: %.1fs" % level_timer
+	draw_string(get_theme_default_font(), Vector2(C.VIEWPORT_WIDTH - 200, 25), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.7, 0.9, 0.7))
+
+	# Obsession bar (внизу слева в HUD)
+	_draw_obsession_bar()
+
+func _draw_obsession_bar() -> void:
+	if not player:
+		return
+
+	var bar_x = 20
+	var bar_y = 40
+	var bar_width = 200
+	var bar_height = 10
+
+	# Фон полосы
+	draw_rect(Rect2(bar_x, bar_y, bar_width, bar_height), Color(0.1, 0.1, 0.1))
+
+	# Заполнение
+	var obsession_percent = player.obsession_fill / (C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS)
+	var fill_width = bar_width * min(obsession_percent, 1.0)
+
+	var obsession_color = Color.MAGENTA
+	if player.obsession_active:
+		obsession_color = Color(1.0, 0.5, 1.0)
+
+	draw_rect(Rect2(bar_x, bar_y, fill_width, bar_height), obsession_color)
+
+	# Граница
+	draw_rect(Rect2(bar_x, bar_y, bar_width, bar_height), Color(0.5, 0.3, 0.5), false, 2.0)
+
+	# Уровень одержимости
+	var level_text = "Obs: %d/3" % player.obsession_level
+	draw_string(get_theme_default_font(), Vector2(bar_x + 210, bar_y), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.5, 1.0))
 
 ## Debug
 func _print_game_state() -> void:
