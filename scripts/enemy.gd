@@ -27,6 +27,7 @@ var attack_range: float
 
 ## Visual
 var hit_flash_time: float = 0.0
+var _frame: int = 0  # Frame counter for animation
 
 ## Signals
 signal died(enemy)
@@ -68,6 +69,9 @@ func _process(delta: float) -> void:
 
 	# Обновляем анимацию
 	_update_animation()
+
+	# Increment frame counter
+	_frame += 1
 
 func _update_ai(delta: float) -> void:
 	if not is_instance_valid(target):
@@ -176,13 +180,19 @@ func _draw() -> void:
 	# Цвет зависит от типа врага и состояния
 	var base_color: Color
 	var armor_color: Color
+	var alpha = 1.0
 
-	if state == "hit":
-		base_color = Color.RED
-		armor_color = Color(0.8, 0.2, 0.2)
-	elif state == "dead":
-		base_color = Color.GRAY
-		armor_color = Color.GRAY
+	if state == "dead":
+		# При смерти - быстрое исчезновение
+		var death_time = 0.5  # time before queue_free
+		alpha = max(0.0, 1.0 - (hit_flash_time / death_time))
+		base_color = Color(0.5, 0.5, 0.5, alpha)
+		armor_color = Color(0.2, 0.2, 0.2, alpha)
+	elif state == "hit":
+		# При попадании - красная вспышка
+		var flash_intensity = 1.0 - (hit_flash_time / C.ENEMY_HIT_FLASH)
+		base_color = Color.RED.lerp(Color(0.8, 0.7, 0.6), flash_intensity)
+		armor_color = Color.RED.lerp(Color(0.4, 0.3, 0.2), flash_intensity)
 	else:
 		# Выбираем цвет по типу врага
 		match enemy_type:
@@ -199,6 +209,9 @@ func _draw() -> void:
 				base_color = Color.YELLOW
 				armor_color = Color.YELLOW
 
+	base_color.a = alpha
+	armor_color.a = alpha
+
 	# Рисуем тело врага (похоже на героя но проще)
 	# Торс
 	draw_rect(Rect2(-14, -8, 28, 22), armor_color)
@@ -212,14 +225,20 @@ func _draw() -> void:
 	# Правая рука (у мушкетера меньше, у пайка больше)
 	if enemy_type == "piker":
 		# Пайка - копье
-		draw_line(Vector2(16, -6), Vector2(40, -10), Color(0.6, 0.5, 0.3), 3.0)
-		draw_circle(Vector2(40, -10), 3, Color(0.4, 0.3, 0.2))
+		var spear_color = Color(0.6, 0.5, 0.3)
+		spear_color.a = alpha
+		draw_line(Vector2(16, -6), Vector2(40, -10), spear_color, 3.0)
+		var spear_tip = Color(0.4, 0.3, 0.2)
+		spear_tip.a = alpha
+		draw_circle(Vector2(40, -10), 3, spear_tip)
 	else:
 		draw_rect(Rect2(12, -4, 6, 16), base_color)
 
 	# Ноги
-	draw_rect(Rect2(-9, 14, 5, 14), Color(0.5, 0.4, 0.3))
-	draw_rect(Rect2(4, 14, 5, 14), Color(0.5, 0.4, 0.3))
+	var leg_color = Color(0.5, 0.4, 0.3)
+	leg_color.a = alpha
+	draw_rect(Rect2(-9, 14, 5, 14), leg_color)
+	draw_rect(Rect2(4, 14, 5, 14), leg_color)
 
 	# HP полоса
 	var hp_width = 40.0 * (float(current_hp) / float(max_hp))

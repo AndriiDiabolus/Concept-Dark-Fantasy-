@@ -375,8 +375,24 @@ func _draw() -> void:
 		draw_circle(Vector2(-3, -28 - head_offset), 2, Color.YELLOW)
 		draw_circle(Vector2(3, -28 - head_offset), 2, Color.YELLOW)
 
-	# Левая рука (с оружием)
+	# Левая рука (с оружием - сабля)
 	draw_rect(Rect2(-22, -8, 8, 20), color)
+
+	# Сабля в руке
+	var sword_glow = Color(1.0, 0.8, 0.3)  # Золотой блеск
+	if obsession_active:
+		sword_glow = Color(1.0, 0.0, 1.0)  # Фиолетовый при одержимости
+
+	# Клинок сабли (линия с шириной)
+	var sword_width = 4.0
+	if attack_cooldown > 0:  # Во время атаки - больше света
+		sword_width = 6.0 + sin(_frame * 0.5) * 2.0
+
+	draw_line(Vector2(-20, -8), Vector2(-30, -20), sword_glow, sword_width)
+
+	if obsession_active:
+		# Дополнительный гляв при одержимости
+		draw_line(Vector2(-20, -8), Vector2(-30, -20), Color(1.0, 0.5, 1.0, 0.5), 10.0)
 
 	# Правая рука (защита если блок)
 	if is_blocking:
@@ -403,6 +419,12 @@ func _draw() -> void:
 	# При блоке - подсветка
 	if is_blocking:
 		draw_rect(Rect2(-28, -35, 56, 65), Color(0, 0, 1, 0.1))
+
+	# При одержимости - пульсирующая аура
+	if obsession_active:
+		var aura_pulse = sin(_frame * 0.15) * 0.3 + 0.5
+		draw_circle(Vector2(0, 0), 50, Color(1.0, 0.0, 1.0, aura_pulse * 0.3))
+		draw_circle(Vector2(0, 0), 60, Color(1.0, 0.5, 1.0, aura_pulse * 0.15))
 
 	# При восстановлении после одержимости - сидит на коленях
 	if is_recovering:
