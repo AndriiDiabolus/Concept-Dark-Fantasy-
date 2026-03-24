@@ -50,8 +50,18 @@ func _input(event: InputEvent) -> void:
 			current_state = C.STATE.PAUSE if get_tree().paused else C.STATE.PLAY
 
 func _draw() -> void:
-	# Фон игры
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
+	# Фон зависит от уровня
+	match current_level:
+		0:  # Level 1 - Zich Ruins
+			_draw_level1_bg()
+		1:  # Level 2 - Villages
+			_draw_level2_bg()
+		2:  # Level 3 - Approach
+			_draw_level3_bg()
+		3:  # Level 4 - Citadel
+			_draw_level4_bg()
+		_:
+			draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
 
 ## Scene Setup
 func _setup_scene() -> void:
@@ -230,6 +240,97 @@ func _on_level_complete() -> void:
 	print("   Time: %.1f sec" % level_timer)
 	current_state = C.STATE.WON
 	get_tree().paused = true
+
+## Level Backgrounds
+func _draw_level1_bg() -> void:
+	# Level 1 - Zich Ruins (раньше казацкая крепость)
+	# Цвет: серый камень, дым, руины
+
+	# Небо - мрачное
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT * 0.6), Color(0.15, 0.15, 0.18))
+
+	# Дымка вверху
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, 200), Color(0.3, 0.25, 0.2, 0.3))
+
+	# Земля - грязная, камень
+	draw_rect(Rect2(0, C.VIEWPORT_HEIGHT * 0.6, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT * 0.4), Color(0.18, 0.15, 0.12))
+
+	# Руины (большие камни/стены)
+	_draw_ruin_block(Vector2(200, 650), 150, 200, Color(0.35, 0.32, 0.28))
+	_draw_ruin_block(Vector2(500, 700), 200, 150, Color(0.32, 0.28, 0.25))
+	_draw_ruin_block(Vector2(1400, 680), 180, 180, Color(0.38, 0.34, 0.30))
+	_draw_ruin_block(Vector2(1700, 750), 220, 120, Color(0.33, 0.30, 0.26))
+	_draw_ruin_block(Vector2(800, 820), 250, 80, Color(0.36, 0.32, 0.28))
+
+	# Трещины в земле
+	draw_line(Vector2(100, 750), Vector2(300, 850), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(600, 800), Vector2(800, 900), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(1200, 780), Vector2(1400, 900), Color(0.1, 0.1, 0.1), 2.0)
+
+func _draw_level2_bg() -> void:
+	# Level 2 - Villages (украинские деревни)
+	var sky_color = Color(0.2, 0.18, 0.25)  # Более фиолетовый оттенок
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), sky_color)
+
+	# Горизонт с деревьями (силуэты)
+	draw_line(Vector2(0, 650), Vector2(C.VIEWPORT_WIDTH, 650), Color(0.1, 0.1, 0.1), 3.0)
+
+	# Рваные дома (силуэты) - горят
+	_draw_house_ruin(Vector2(300, 550), 100, 150, Color(0.4, 0.2, 0.1))
+	_draw_house_ruin(Vector2(800, 580), 120, 140, Color(0.38, 0.18, 0.08))
+	_draw_house_ruin(Vector2(1400, 560), 100, 160, Color(0.42, 0.22, 0.12))
+
+func _draw_level3_bg() -> void:
+	# Level 3 - Mountains (горы, артиллерия)
+	var gradient_color = Color(0.25, 0.2, 0.3)  # Синий+фиолетовый горный цвет
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), gradient_color)
+
+	# Горы (треугольники)
+	var mountain_pts = PackedVector2Array([
+		Vector2(0, 900),
+		Vector2(500, 400),
+		Vector2(1000, 900),
+	])
+	draw_colored_polygon(mountain_pts, Color(0.2, 0.15, 0.25))
+
+	var mountain_pts2 = PackedVector2Array([
+		Vector2(800, 900),
+		Vector2(1300, 350),
+		Vector2(1920, 900),
+	])
+	draw_colored_polygon(mountain_pts2, Color(0.22, 0.17, 0.27))
+
+func _draw_level4_bg() -> void:
+	# Level 4 - Citadel (замок, тронный зал)
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.08, 0.06, 0.12))
+
+	# Стены замка
+	draw_rect(Rect2(0, 200, C.VIEWPORT_WIDTH, 150), Color(0.25, 0.2, 0.2))
+	draw_rect(Rect2(0, 400, C.VIEWPORT_WIDTH, 50), Color(0.2, 0.15, 0.15))
+
+func _draw_ruin_block(pos: Vector2, w: float, h: float, col: Color) -> void:
+	# Рисует блок руин с тенью и трещинами
+	draw_rect(Rect2(pos.x - w/2, pos.y - h/2, w, h), col)
+
+	# Тень
+	draw_rect(Rect2(pos.x - w/2, pos.y + h/2, w, 20), Color(0, 0, 0, 0.3))
+
+	# Трещины
+	if randf() > 0.5:
+		draw_line(Vector2(pos.x - w/4, pos.y - h/2), Vector2(pos.x - w/4, pos.y + h/2), Color(0.1, 0.1, 0.1), 1.0)
+		draw_line(Vector2(pos.x + w/4, pos.y - h/2), Vector2(pos.x + w/4, pos.y + h/2), Color(0.1, 0.1, 0.1), 1.0)
+
+func _draw_house_ruin(pos: Vector2, w: float, h: float, col: Color) -> void:
+	# Рисует сгоревший дом
+	draw_rect(Rect2(pos.x - w/2, pos.y - h, w, h), col)
+
+	# Черная крыша (торчит)
+	var roof = PackedVector2Array([
+		Vector2(pos.x - w/2, pos.y - h),
+		Vector2(pos.x, pos.y - h - 40),
+		Vector2(pos.x + w/2, pos.y - h),
+	])
+	draw_colored_polygon(roof, Color(0.1, 0.1, 0.1))
 
 ## Debug
 func _print_game_state() -> void:

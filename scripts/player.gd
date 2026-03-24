@@ -32,6 +32,7 @@ var last_dodge_time: float = 0.0
 ## Animation & Visual
 var facing_right: bool = true
 var degrade_stage: int = 0  # 0, 1, 2, 3 (визуальная деградация)
+var _frame: int = 0  # Счётчик кадров для анимаций
 
 ## Signals
 signal hp_changed(new_hp)
@@ -61,6 +62,9 @@ func _process(delta: float) -> void:
 	_update_obsession(delta)
 	_update_movement(delta)
 	_update_animation()
+
+	# Счётчик кадров для анимаций
+	_frame += 1
 
 	# Проверяем смерть
 	if current_hp <= 0:
@@ -330,20 +334,77 @@ func _update_animation() -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	# Определяем цвет героя в зависимости от состояния
+	var color = Color(0.8, 0.6, 0.4)  # Кожа
+	var armor_color = Color(0.3, 0.2, 0.1)  # Доспехи (коричневые)
 
-	# Рисуем героя как квадрат (48x64)
-	var color = Color.RED
 	if obsession_active:
-		color = Color.MAGENTA
-	elif is_blocking:
-		color = Color.BLUE
+		color = Color(1.0, 0.0, 1.0)  # Фиолетовый при одержимости
+		armor_color = Color(1.0, 0.2, 1.0)
 
-	# Рисуем квадрат 48x64 с центром в (0,0)
-	draw_rect(Rect2(-24, -32, 48, 64), color)
+	# Базовая поза
+	var leg_offset_y = 0.0
+	var head_offset = 0.0
 
-	# Рисуем HP полосу внизу
+	# Анимация ног при ходьбе
+	if is_moving and _frame > 0:
+		leg_offset_y = sin(_frame * 0.3) * 3.0
+		head_offset = abs(cos(_frame * 0.3)) * 2.0
+
+	# Рисуем тело (торс)
+	draw_rect(Rect2(-16, -16, 32, 28), armor_color)
+
+	# Рисуем голову
+	draw_circle(Vector2(0, -26 - head_offset), 8, color)
+
+	# Глаза (если не одержимость)
+	if not obsession_active:
+		draw_circle(Vector2(-3, -28 - head_offset), 2, Color.BLACK)
+		draw_circle(Vector2(3, -28 - head_offset), 2, Color.BLACK)
+	else:
+		# Горящие глаза при одержимости
+		draw_circle(Vector2(-3, -28 - head_offset), 2, Color.YELLOW)
+		draw_circle(Vector2(3, -28 - head_offset), 2, Color.YELLOW)
+
+	# Левая рука (с оружием)
+	draw_rect(Rect2(-22, -8, 8, 20), color)
+
+	# Правая рука (защита если блок)
+	if is_blocking:
+		# Щит
+		draw_circle(Vector2(18, -8), 12, Color.BLUE)
+		draw_circle(Vector2(18, -8), 10, Color(0.2, 0.3, 0.8))
+		# Символ на щите
+		draw_circle(Vector2(18, -8), 4, Color.YELLOW)
+	else:
+		draw_rect(Rect2(14, -8, 8, 20), color)
+
+	# Ноги с анимацией
+	var left_leg_y = 12 + leg_offset_y
+	var right_leg_y = 12 - leg_offset_y
+
+	draw_rect(Rect2(-10, left_leg_y, 6, 18), Color(0.6, 0.4, 0.2))  # Левая нога (тёмнее)
+	draw_rect(Rect2(4, right_leg_y, 6, 18), Color(0.6, 0.4, 0.2))  # Правая нога
+
+	# HP полоса сверху
 	var hp_percent = float(current_hp) / float(C.PLAYER_HP_MAX)
-	draw_rect(Rect2(-24, 35, 48 * hp_percent, 4), Color.GREEN)
+	draw_rect(Rect2(-24, -40, 48 * hp_percent, 3), Color.GREEN)
+	draw_rect(Rect2(-24, -40, 48, 3), Color(0.2, 0.2, 0.2))
+
+	# При уклоне - прозрачность/эффект
+	if last_dodge_time < 0.15:
+		# Недавний уклон - немного прозрачнее
+		modulate = Color(1.0, 1.0, 1.0, 0.7)
+
+	# При блоке - подсветка
+	if is_blocking:
+		draw_rect(Rect2(-28, -35, 56, 65), Color(0, 0, 1, 0.1))
+
+	# При восстановлении после одержимости - сидит на коленях
+	if is_recovering:
+		# Измененная поза
+		draw_rect(Rect2(-14, -10, 28, 20), armor_color)  # торс более низко
+		draw_circle(Vector2(0, -20), 8, color)  # голова выше
 
 func _play_attack_animation(combo_idx: int, duration: float) -> void:
 	# TODO: воспроизводим анимацию атаки

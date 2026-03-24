@@ -173,18 +173,75 @@ func _update_animation() -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	# Рисуем врага как квадрат (40x40)
-	var color = Color.YELLOW
+	# Цвет зависит от типа врага и состояния
+	var base_color: Color
+	var armor_color: Color
+
 	if state == "hit":
-		color = Color.RED
+		base_color = Color.RED
+		armor_color = Color(0.8, 0.2, 0.2)
 	elif state == "dead":
-		color = Color.GRAY
+		base_color = Color.GRAY
+		armor_color = Color.GRAY
+	else:
+		# Выбираем цвет по типу врага
+		match enemy_type:
+			"pehota":
+				base_color = Color(0.8, 0.7, 0.6)  # Светлая кожа
+				armor_color = Color(0.4, 0.3, 0.2)  # Коричневые доспехи
+			"musketeer":
+				base_color = Color(0.75, 0.65, 0.55)
+				armor_color = Color(0.2, 0.2, 0.3)  # Синие доспехи (мушкетер)
+			"piker":
+				base_color = Color(0.7, 0.6, 0.5)
+				armor_color = Color(0.3, 0.25, 0.2)  # Более темные доспехи (тяжелая броня)
+			_:
+				base_color = Color.YELLOW
+				armor_color = Color.YELLOW
 
-	draw_rect(Rect2(-20, -20, 40, 40), color)
+	# Рисуем тело врага (похоже на героя но проще)
+	# Торс
+	draw_rect(Rect2(-14, -8, 28, 22), armor_color)
 
-	# Рисуем HP полосу сверху
+	# Голова
+	draw_circle(Vector2(0, -18), 7, base_color)
+
+	# Левая рука
+	draw_rect(Rect2(-18, -4, 6, 16), base_color)
+
+	# Правая рука (у мушкетера меньше, у пайка больше)
+	if enemy_type == "piker":
+		# Пайка - копье
+		draw_line(Vector2(16, -6), Vector2(40, -10), Color(0.6, 0.5, 0.3), 3.0)
+		draw_circle(Vector2(40, -10), 3, Color(0.4, 0.3, 0.2))
+	else:
+		draw_rect(Rect2(12, -4, 6, 16), base_color)
+
+	# Ноги
+	draw_rect(Rect2(-9, 14, 5, 14), Color(0.5, 0.4, 0.3))
+	draw_rect(Rect2(4, 14, 5, 14), Color(0.5, 0.4, 0.3))
+
+	# HP полоса
 	var hp_width = 40.0 * (float(current_hp) / float(max_hp))
-	draw_rect(Rect2(-20, -25, hp_width, 4), Color.GREEN)
+	draw_rect(Rect2(-20, -28, 40, 2), Color(0.2, 0.2, 0.2))
+	draw_rect(Rect2(-20, -28, hp_width, 2), Color.GREEN)
+
+	# Визуальная подсказка типа врага (символ над головой)
+	match enemy_type:
+		"pehota":
+			draw_circle(Vector2(0, -30), 2, Color.YELLOW)  # Точка = пехота
+		"musketeer":
+			# Две точки = мушкетер
+			draw_circle(Vector2(-3, -30), 2, Color(0.2, 0.5, 1.0))
+			draw_circle(Vector2(3, -30), 2, Color(0.2, 0.5, 1.0))
+		"piker":
+			# Треугольник = пайка
+			var tri = PackedVector2Array([
+				Vector2(0, -32),
+				Vector2(-3, -28),
+				Vector2(3, -28),
+			])
+			draw_colored_polygon(tri, Color(1.0, 0.5, 0.2))
 
 func get_status() -> Dictionary:
 	return {
