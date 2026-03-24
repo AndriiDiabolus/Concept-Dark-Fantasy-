@@ -46,8 +46,21 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if event.keycode == KEY_ESCAPE:
-			get_tree().paused = !get_tree().paused
-			current_state = C.STATE.PAUSE if get_tree().paused else C.STATE.PLAY
+			if current_state == C.STATE.PAUSE:
+				get_tree().paused = false
+				current_state = C.STATE.PLAY
+			elif current_state == C.STATE.PLAY:
+				get_tree().paused = true
+				current_state = C.STATE.PAUSE
+		elif event.keycode == KEY_ENTER:
+			if current_state == C.STATE.LOST:
+				# Перезагрузить уровень
+				get_tree().paused = false
+				load_level(current_level)
+			elif current_state == C.STATE.WON:
+				# Следующий уровень
+				get_tree().paused = false
+				load_level(current_level + 1)
 
 func _draw() -> void:
 	# Фон зависит от уровня
@@ -65,6 +78,15 @@ func _draw() -> void:
 
 	# Рисуем HUD поверх всего
 	_draw_hud()
+
+	# Рисуем состояние игры (пауза, проигрыш, победа)
+	match current_state:
+		C.STATE.PAUSE:
+			_draw_pause_screen()
+		C.STATE.LOST:
+			_draw_lost_screen()
+		C.STATE.WON:
+			_draw_won_screen()
 
 ## Scene Setup
 func _setup_scene() -> void:
@@ -390,6 +412,64 @@ func _draw_obsession_bar() -> void:
 	# Уровень одержимости
 	var level_text = "Obs: %d/3" % player.obsession_level
 	draw_string(get_theme_default_font(), Vector2(bar_x + 210, bar_y), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.5, 1.0))
+
+func _draw_pause_screen() -> void:
+	# Полусерый оверлей
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0, 0, 0, 0.5))
+
+	# "PAUSE" текст в центре
+	var pause_text = "ПАУЗА"
+	var font = get_theme_default_font()
+	var text_size = font.get_string_size(pause_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 40), pause_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Color.WHITE)
+
+	# Инструкция
+	var hint = "Нажми Escape для продолжения"
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 30), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.7, 0.7, 0.7))
+
+func _draw_lost_screen() -> void:
+	# Красный оверлей
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.8, 0.1, 0.1, 0.6))
+
+	# "GAME OVER" текст
+	var font = get_theme_default_font()
+	var game_over_text = "ПОРАЖЕНИЕ"
+	var text_size = font.get_string_size(game_over_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), game_over_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color.RED)
+
+	# Статистика
+	var stats = "Уровень: %d | Волна: %d | Время: %.1f сек" % [
+		current_level + 1,
+		waves_complete,
+		level_timer
+	]
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 300, C.VIEWPORT_HEIGHT/2 + 20), stats, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+	# Подсказка
+	var hint = "Нажми Enter для перезагрузки"
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 80), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.8, 0.8, 0.8))
+
+func _draw_won_screen() -> void:
+	# Зеленый оверлей
+	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.6, 0.1, 0.6))
+
+	# "VICTORY" текст
+	var font = get_theme_default_font()
+	var victory_text = "УРОВЕНЬ ПРОЙДЕН!"
+	var text_size = font.get_string_size(victory_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), victory_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color(0.2, 1.0, 0.2))
+
+	# Статистика
+	var stats = "Волна: %d / %d | Время: %.1f сек" % [
+		waves_complete,
+		C.LEVELS[current_level].enemy_waves.size(),
+		level_timer
+	]
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 300, C.VIEWPORT_HEIGHT/2 + 20), stats, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+	# Подсказка
+	var hint = "Нажми Enter для следующего уровня"
+	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 80), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.8, 1.0, 0.8))
 
 ## Debug
 func _print_game_state() -> void:
