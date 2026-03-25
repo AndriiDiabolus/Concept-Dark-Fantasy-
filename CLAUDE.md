@@ -379,3 +379,146 @@ godot --path . --debug
 - 1 новый коммит в main
 - Working tree clean
 - Готово для Session 6
+
+---
+
+### Сессия 6 — 2026-03-26
+**Сделано:** Dash-механика, same-level combat, сплэш-экран SABBATH, исправления viewport.
+
+#### Реализовано (код)
+
+**1. Рывок (Dash) — Shift+A / Shift+D**
+- `constants.gd`: `PLAYER_DASH_SPEED=650`, `PLAYER_DASH_DURATION=0.18`, `PLAYER_DASH_COOLDOWN=1.2`, `PLAYER_DASH_INVINCIBLE=0.18`
+- `player.gd`: новые vars `dash_cooldown`, `dash_timer`, `is_dashing`, `dash_dir`
+- `do_dash(dir)` — устанавливает скорость 650px/s, длительность 0.18с, кулдаун 1.2с
+- Во время рывка: **неуязвимость** (take_damage проверяет `is_dashing`), мигание спрайта, синяя аура
+- Нельзя рывкнуть во время блока или другого рывка
+- Детект: `(Shift+A` → dir=-1) или `(Shift+D` → dir=1), edge-triggered через `_prev_shift_a/d`
+
+**2. Same-level melee combat**
+- `enemy.gd`: `same_level := dy_raw <= 80 or enemy_type == "musketeer"`
+- Пехота/Пикинёр не начинают преследование, прерывают его и не атакуют если `|dy| > 80px`
+- Мушкетёр — логика без изменений (all-levels, дальняя атака)
+- Атака: единый порог `dy > 80` для всех типов (было только для мушкетёра `dy > 130`)
+
+**3. Сплэш-экран**
+- `constants.gd`: добавлен `STATE.SPLASH` в enum (был: PLAY/PAUSE/LOST/WON)
+- `main.gd`:
+  - `_splash_t: int`, `_splash_embers: Array` — новые vars
+  - `_init_splash_embers()` — 55 частиц-углей с рандомными параметрами
+  - `_update_splash_embers()` — физика + мерцание (sin-фаза)
+  - `_draw_splash(ox, oy)` — полный draw с таймингами:
+    - t 0–90: затухание из чёрного
+    - t 30–120: луна с кровавым оттенком и кратерами
+    - t 80–170: руины + башни + козацкий крест (_draw_splash_ruins)
+    - t 60–140: летящие угли
+    - t 150–240: заголовок SABBATH с малиновым свечением + декор. линии
+    - t 240–310: подзаголовок "Among Life and Death"
+    - t 320+: пульсирующий "Нажми Enter чтобы начать"
+  - `_start_game()` — создаёт сцену и загружает уровень (отложено от _ready)
+  - Camera2D создаётся в `_ready()` сразу → корректный viewport во время сплэша
+  - Вход: Enter / Space / клик мыши (только после t > 60)
+  - Дерево паузится (`get_tree().paused = true`) во время сплэша
+  - Удалён debug-блок из HUD (A/D/W индикаторы)
+
+**Архитектурные решения:**
+- Camera2D создаётся в `_ready()` до `_start_game()` — иначе viewport без активной камеры смещается в embedded-режиме Godot
+- `await get_tree().process_frame` стоит ДО `get_tree().paused = true` — иначе await может не разрезолвиться при паузе
+- `Array[float]` + `for gp: float in` вместо нетипизированного Array — иначе type-inference error на `var gx := ox + vw * gp`
+
+**Исправленные баги:**
+- Parse error: `var gx := ox + vw * gp` (Variant из нетипизированного Array) → `Array[float]` + явный тип
+- Viewport смещён вправо в embedded mode → Camera2D создаётся сразу в _ready()
+- `get_tree().paused = true` перед `await` → потенциальный deadlock → переставлен порядок
+
+---
+
+#### Текущее состояние кода (актуально)
+
+```
+scripts/
+  constants.gd   — +PLAYER_DASH_*, STATE enum +SPLASH
+  player.gd      — +dash (do_dash, timers, visual), +_prev_shift_a/d
+  enemy.gd       — +same_level check (dy <= 80), единый атак-порог
+  main.gd        — +сплэш система (~200 строк), +Camera2D в ready, +_start_game()
+scenes/
+  main.tscn      — без изменений
+assets/
+  (пусто — нет спрайтов и звуков)
+```
+
+**Реализованные механики (полный список):**
+```
+✅ WASD движение + прыжок (W)
+✅ Атака Space (3-hit combo)
+✅ Блок R (снижение урона 35%)
+✅ Рывок Shift+A/D (650px/s, 0.18с, 1.2с CD, неуязвимость)
+✅ Одержимость V (3 уровня, 20с, 120с CD, x2 урон/скорость)
+✅ Пассивный уклон 5%
+✅ Деградация (3 стадии визуальная трансформация)
+✅ 3 типа врагов (Пехота, Мушкетёр, Пикинёр)
+✅ Same-level melee combat
+✅ 4 уровня с платформами
+✅ Сплэш-экран SABBATH
+✅ Параллакс фон (руины 0.18x, деревья 0.45x)
+✅ Пауза (ESC)
+✅ Autotest (--autotest CLI)
+```
+
+**Не реализовано:**
+```
+❌ Главное меню (Start / Exit)
+❌ Звуки
+❌ Спрайты (всё — draw() примитивы)
+❌ Боссфайт (Князь, 4 фазы)
+❌ Нарративные кат-сцены / диалоги
+❌ Финальный экран после уровня 4
+❌ Knockback
+❌ Сохранения
+❌ Talent tree
+```
+
+---
+
+#### Known Issues / Риски
+
+| Приоритет | Проблема | Статус |
+|-----------|---------|--------|
+| 🔴 БЛОКЕР | Нет спрайтов — игра с примитивами не дойдёт до Alpha без художника/ассетов | Открыт |
+| 🟡 Средний | `scripts/enemies/pehota.gd:51` — TODO спрайт-стейты (dead код) | Открыт |
+| 🟡 Средний | Нет главного меню — игра стартует с Enter на сплэше прямо в Level 0 | Открыт |
+| 🟡 Средний | Нет звуков — боёвка ощущается пустой | Открыт |
+| 🟢 Низкий | Мушкетёр: `same_level` всегда true → стреляет через платформы (поведение ок для прототипа) | Открыт |
+| 🟢 Низкий | Нет финального экрана после Level 3 — цикл на Level 0 | Открыт |
+
+---
+
+#### Next Steps (приоритет)
+
+1. **Главное меню** — Новая игра / Выход, переход Сплэш → Меню → Игра
+2. **Звуки** — удар, блок, рывок, одержимость, смерть (CC0, kenney.nl)
+3. **Win/Lose flow** — финальный экран после Level 3, нормальный game over
+4. **Боссфайт Князя** — 4 фазы (охрана → копьё → охрана → дуэль), триггер одержимости в фазе 4
+5. **Спрайты** — внешняя задача, блокер для Alpha
+
+---
+
+#### Команды запуска
+
+```bash
+# Открыть проект
+open "/Users/andriidiablo/Documents/Dark Fantasy concept/project.godot"
+
+# Git
+cd "/Users/andriidiablo/Documents/Dark Fantasy concept"
+git status
+git log --oneline -10
+
+# Запуск: F5 в Godot Editor
+# Autotest (headless):
+# /path/to/Godot --headless --path "..." -- --autotest
+```
+
+**Git status сессии:**
+- 4 файла изменены: constants.gd, player.gd, enemy.gd, main.gd
+- Готово к коммиту в 2 логичных коммита (см. ниже)

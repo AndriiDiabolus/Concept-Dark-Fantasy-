@@ -4,10 +4,15 @@
 extends Node2D
 
 #region Стан гри
-var current_state: int = C.STATE.PLAY
+var current_state: int = C.STATE.SPLASH
 var current_level: int = 0
 var level_timer: float = 0.0
 var _focused: bool = false   # true после первого клика — фокус получен
+#endregion
+
+#region Сплэш
+var _splash_t: int = 0
+var _splash_embers: Array = []
 #endregion
 
 #region Ноди
@@ -31,11 +36,28 @@ func _ready() -> void:
 	get_viewport().handle_input_locally = true
 	_autotest = "--autotest" in OS.get_cmdline_user_args()
 	print("🎮 Sabbath v0.2 — Platformer%s" % (" [AUTOTEST]" if _autotest else ""))
+	# Камера нужна сразу — иначе viewport смещается без Camera2D
+	camera = Camera2D.new()
+	camera.name = "Camera2D"
+	add_child(camera)
+	camera.make_current()
+	camera.global_position = Vector2(C.VIEWPORT_WIDTH / 2.0, C.VIEWPORT_HEIGHT / 2.0)
+
+	_init_splash_embers()
+	await get_tree().process_frame
+	get_window().grab_focus()
+	if _autotest:
+		_start_game()
+	else:
+		current_state = C.STATE.SPLASH
+		get_tree().paused = true
+
+func _start_game() -> void:
+	get_tree().paused = false
+	_focused = true
 	_setup_scene()
 	_setup_input_catcher()
 	load_level(0)
-	await get_tree().process_frame
-	get_window().grab_focus()
 
 # ──────────────────────────────────────────────
 #region Ініціалізація сцени
@@ -293,6 +315,9 @@ func _process(delta: float) -> void:
 	if _autotest:
 		_run_autotest()
 	match current_state:
+		C.STATE.SPLASH:
+			_splash_t += 1
+			_update_splash_embers()
 		C.STATE.PLAY:
 			level_timer += delta
 			_update_camera()
@@ -367,6 +392,18 @@ func _check_win() -> void:
 # ──────────────────────────────────────────────
 #region Ввод
 func _input(event: InputEvent) -> void:
+	# Сплэш — Enter/Space/клик запускают игру
+	if current_state == C.STATE.SPLASH and _splash_t > 60:
+		if event is InputEventMouseButton and event.pressed:
+			_start_game()
+			return
+		if event is InputEventKey and event.pressed and not event.echo:
+			var k2: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+			if k2 == KEY_ENTER or k2 == KEY_SPACE:
+				_start_game()
+				return
+		return
+
 	# Клик мышью → даём фокус окну
 	if event is InputEventMouseButton and event.pressed:
 		_focused = true
@@ -438,6 +475,10 @@ func _draw() -> void:
 	var cx := camera.global_position.x if camera else C.VIEWPORT_WIDTH / 2.0
 	var ox := cx - C.VIEWPORT_WIDTH / 2.0  # ліва межа камери у світових координатах
 	var oy := 0.0
+
+	if current_state == C.STATE.SPLASH:
+		_draw_splash(ox, oy)
+		return
 
 	_draw_background(ox, oy)
 	_draw_platforms()
@@ -564,14 +605,6 @@ func _draw_hud(ox: float, oy: float) -> void:
 			"A/D — движение   W — прыжок   Space — атака   R — блок   V — одержимость",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.75, 0.72, 0.60, 0.9))
 
-	# === DEBUG (временно) ===
-	var a := Input.is_key_pressed(KEY_A)
-	var d := Input.is_key_pressed(KEY_D)
-	var w := Input.is_key_pressed(KEY_W)
-	var dbg := "A:%s D:%s W:%s | кадр:%d" % [
-		"▮" if a else "▯", "▮" if d else "▯", "▮" if w else "▯", int(level_timer * 60)
-	]
-	draw_string(font, Vector2(ox + 24, oy + 80), dbg, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 1.0, 0.0, 0.9))
 
 func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String) -> void:
 	var font := ThemeDB.fallback_font
@@ -583,4 +616,171 @@ func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String)
 	var ty := oy + vh / 2.0
 	draw_string(font, Vector2(tx, ty - 20), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 52, Color.WHITE)
 	draw_string(font, Vector2(tx, ty + 36), hint,  HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.80, 0.78, 0.65))
+#endregion
+
+# ──────────────────────────────────────────────
+#region Сплэш
+func _init_splash_embers() -> void:
+	_splash_embers.clear()
+	for i in range(55):
+		_splash_embers.append({
+			"x":    randf() * float(C.VIEWPORT_WIDTH),
+			"y":    randf() * float(C.VIEWPORT_HEIGHT),
+			"vx":   (randf() - 0.5) * 0.9,
+			"vy":   -(0.5 + randf() * 1.4),
+			"size": 0.8 + randf() * 2.2,
+			"base_alpha": 0.35 + randf() * 0.65,
+			"alpha": 0.5,
+			"phase": randf() * TAU,
+		})
+
+func _update_splash_embers() -> void:
+	for ember in _splash_embers:
+		ember["x"]  += ember["vx"]
+		ember["y"]  += ember["vy"]
+		ember["alpha"] = ember["base_alpha"] * (sin(float(_splash_t) * 0.08 + ember["phase"]) * 0.35 + 0.65)
+		if ember["y"] < -8.0:
+			ember["y"] = float(C.VIEWPORT_HEIGHT) + 5.0
+			ember["x"] = randf() * float(C.VIEWPORT_WIDTH)
+
+func _draw_splash(ox: float, oy: float) -> void:
+	var font := ThemeDB.fallback_font
+	var vw   := float(C.VIEWPORT_WIDTH)
+	var vh   := float(C.VIEWPORT_HEIGHT)
+	var t    := float(_splash_t)
+
+	# ── Фон ──────────────────────────────────────
+	draw_rect(Rect2(ox, oy,           vw, vh * 0.55), Color(0.02, 0.01, 0.05))
+	draw_rect(Rect2(ox, oy + vh*0.4, vw, vh * 0.60), Color(0.07, 0.02, 0.04))
+
+	# ── Луна ─────────────────────────────────────
+	var moon_fade := clampf((t - 30.0) / 90.0, 0.0, 1.0)
+	var mx := ox + vw * 0.5
+	var my := oy + vh * 0.24
+	draw_circle(Vector2(mx, my), 148, Color(0.72, 0.50, 0.22, moon_fade * 0.05))
+	draw_circle(Vector2(mx, my), 110, Color(0.82, 0.62, 0.32, moon_fade * 0.09))
+	draw_circle(Vector2(mx, my),  82, Color(0.90, 0.78, 0.52, moon_fade * 0.16))
+	draw_circle(Vector2(mx, my),  64, Color(0.94, 0.90, 0.76, moon_fade))
+	# Кровавый оттенок луны
+	draw_circle(Vector2(mx, my),  64, Color(0.75, 0.08, 0.04, moon_fade * 0.28))
+	# Кратеры
+	draw_circle(Vector2(mx - 18, my - 12), 7, Color(0.80, 0.72, 0.58, moon_fade * 0.55))
+	draw_circle(Vector2(mx + 22, my + 10), 5, Color(0.80, 0.72, 0.58, moon_fade * 0.45))
+	draw_circle(Vector2(mx - 8,  my + 22), 4, Color(0.80, 0.72, 0.58, moon_fade * 0.40))
+
+	# ── Руины + кресты ───────────────────────────
+	var ruin_fade := clampf((t - 80.0) / 90.0, 0.0, 1.0)
+	_draw_splash_ruins(ox, oy, vw, vh, ruin_fade)
+
+	# ── Туман ────────────────────────────────────
+	var mist_fade := clampf((t - 100.0) / 80.0, 0.0, 1.0)
+	draw_rect(Rect2(ox, oy + vh * 0.82, vw, vh * 0.18), Color(0.10, 0.04, 0.06, mist_fade * 0.50))
+	draw_rect(Rect2(ox, oy + vh * 0.89, vw, vh * 0.11), Color(0.14, 0.06, 0.08, mist_fade * 0.38))
+
+	# ── Искры/угли ───────────────────────────────
+	var ember_fade := clampf((t - 60.0) / 80.0, 0.0, 1.0)
+	if ember_fade > 0.01:
+		for ember in _splash_embers:
+			draw_circle(
+				Vector2(ox + ember["x"], oy + ember["y"]),
+				ember["size"],
+				Color(0.95, 0.42, 0.08, ember["alpha"] * ember_fade)
+			)
+
+	# ── Заголовок "SABBATH" ───────────────────────
+	var title_fade := clampf((t - 150.0) / 90.0, 0.0, 1.0)
+	if title_fade > 0.01:
+		var pulse := sin(t * 0.045) * 0.14 + 0.86
+		# Малиновое свечение за заголовком
+		draw_circle(Vector2(mx, oy + vh * 0.525), 280, Color(0.50, 0.03, 0.03, title_fade * 0.055 * pulse))
+		draw_circle(Vector2(mx, oy + vh * 0.525), 200, Color(0.58, 0.04, 0.04, title_fade * 0.08  * pulse))
+		draw_circle(Vector2(mx, oy + vh * 0.525), 130, Color(0.65, 0.05, 0.05, title_fade * 0.11  * pulse))
+		# Заголовок
+		var tc := Color(0.96, 0.84, 0.48, title_fade * pulse)
+		draw_string(font, Vector2(mx - 205, oy + vh * 0.555),
+			"SABBATH", HORIZONTAL_ALIGNMENT_LEFT, -1, 92, tc)
+		# Декоративные линии по бокам заголовка
+		var lc := Color(0.72, 0.52, 0.26, title_fade * 0.85)
+		draw_line(Vector2(ox + vw * 0.08, oy + vh * 0.560), Vector2(ox + vw * 0.295, oy + vh * 0.560), lc, 1.5)
+		draw_line(Vector2(ox + vw * 0.08, oy + vh * 0.564), Vector2(ox + vw * 0.245, oy + vh * 0.564), lc, 0.8)
+		draw_line(Vector2(ox + vw * 0.705, oy + vh * 0.560), Vector2(ox + vw * 0.92,  oy + vh * 0.560), lc, 1.5)
+		draw_line(Vector2(ox + vw * 0.755, oy + vh * 0.564), Vector2(ox + vw * 0.92,  oy + vh * 0.564), lc, 0.8)
+
+	# ── Подзаголовок ─────────────────────────────
+	var sub_fade := clampf((t - 240.0) / 70.0, 0.0, 1.0)
+	if sub_fade > 0.01:
+		draw_string(font, Vector2(mx - 185, oy + vh * 0.598),
+			"Among  Life  and  Death", HORIZONTAL_ALIGNMENT_LEFT, -1, 24,
+			Color(0.68, 0.50, 0.36, sub_fade))
+
+	# ── Разделитель ──────────────────────────────
+	if sub_fade > 0.01:
+		draw_rect(Rect2(ox + vw * 0.35, oy + vh * 0.608, vw * 0.30, 1),
+			Color(0.55, 0.38, 0.22, sub_fade * 0.6))
+
+	# ── "Нажми Enter" ────────────────────────────
+	if t > 320:
+		var hint_pulse := sin(t * 0.065) * 0.38 + 0.62
+		var ha := clampf((t - 320.0) / 60.0, 0.0, 1.0) * hint_pulse
+		draw_string(font, Vector2(mx - 132, oy + vh * 0.88),
+			"Нажми Enter чтобы начать", HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
+			Color(0.80, 0.74, 0.58, ha))
+
+	# ── Затухание из черного при старте ───────────
+	if t < 90:
+		var black_a := 1.0 - clampf(t / 90.0, 0.0, 1.0)
+		draw_rect(Rect2(ox, oy, vw, vh), Color(0.0, 0.0, 0.0, black_a))
+
+func _draw_splash_ruins(ox: float, oy: float, vw: float, vh: float, alpha: float) -> void:
+	if alpha < 0.01:
+		return
+	var rc   := Color(0.05, 0.03, 0.04, alpha)
+	var wc   := Color(0.16, 0.09, 0.05, alpha * 0.75)   # окна (чуть теплее)
+	var base := oy + vh                                   # низ экрана
+
+	# ── Левая башня ──────────────────────────────
+	draw_rect(Rect2(ox + vw * 0.055, base - 300, 72, 300), rc)
+	draw_rect(Rect2(ox + vw * 0.038, base - 345, 106, 52), rc)   # зубцы основа
+	# Зубцы
+	for i in range(4):
+		draw_rect(Rect2(ox + vw * 0.038 + i * 28, base - 380, 18, 40), rc)
+	# Окна башни
+	draw_rect(Rect2(ox + vw * 0.055 + 14, base - 250, 14, 22), wc)
+	draw_rect(Rect2(ox + vw * 0.055 + 44, base - 250, 14, 22), wc)
+	draw_rect(Rect2(ox + vw * 0.055 + 22, base - 180, 28, 36), wc)  # большое окно
+
+	# ── Правая башня ─────────────────────────────
+	draw_rect(Rect2(ox + vw * 0.870, base - 260, 68, 260), rc)
+	draw_rect(Rect2(ox + vw * 0.856, base - 302, 96, 48), rc)
+	for i in range(4):
+		draw_rect(Rect2(ox + vw * 0.856 + i * 25, base - 336, 16, 38), rc)
+	draw_rect(Rect2(ox + vw * 0.870 + 12, base - 210, 14, 20), wc)
+	draw_rect(Rect2(ox + vw * 0.870 + 40, base - 210, 14, 20), wc)
+
+	# ── Стена между башнями (фрагменты) ──────────
+	draw_rect(Rect2(ox + vw * 0.13,  base - 120, vw * 0.12, 120), rc)
+	draw_rect(Rect2(ox + vw * 0.72,  base - 100, vw * 0.14, 100), rc)
+	draw_rect(Rect2(ox + vw * 0.38,  base - 75,  vw * 0.08, 75),  rc)
+
+	# ── Центральный Казацкий крест ────────────────
+	var cx := ox + vw * 0.5
+	# Вертикаль
+	draw_rect(Rect2(cx - 6, base - 215, 12, 215), rc)
+	# Верхняя перекладина
+	draw_rect(Rect2(cx - 40, base - 170, 80, 10), rc)
+	# Нижняя перекладина (казацкий крест)
+	draw_rect(Rect2(cx - 26, base - 140, 52,  8), rc)
+	# Диагональная планка (характерно для казацкого креста)
+	draw_line(Vector2(cx - 26, base - 132), Vector2(cx + 26, base - 148),
+		Color(0.05, 0.03, 0.04, alpha), 7.0)
+
+	# ── Малые могилы слева и справа ──────────────
+	var graves: Array[float] = [0.18, 0.26, 0.34, 0.60, 0.68, 0.76]
+	for gp: float in graves:
+		var gx := ox + vw * gp
+		draw_rect(Rect2(gx - 4, base - 85, 8, 85), rc)
+		draw_rect(Rect2(gx - 16, base - 66, 32, 7), rc)
+
+	# ── Земля ─────────────────────────────────────
+	draw_rect(Rect2(ox, base - 50, vw, 50), Color(0.04, 0.02, 0.03, alpha))
 #endregion
