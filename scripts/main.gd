@@ -235,7 +235,8 @@ func resolve_collision(pos: Vector2, char_size: Vector2, move_delta: Vector2) ->
 	var hh        := char_size.y * 0.5
 	var on_ground := false
 
-	for plat in current_platforms:
+	for plat_v in current_platforms:
+		var plat    := plat_v as Rect2
 		var prev_bottom := pos.y + hh
 		var new_bottom  := new_pos.y + hh
 		var plat_top    := plat.position.y
@@ -289,7 +290,7 @@ func _check_win() -> void:
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
-	var key := event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+	var key: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 
 	# Системні клавіші
 	if key == KEY_ESCAPE:
@@ -393,7 +394,8 @@ func _draw_background(ox: float, _oy: float) -> void:
 	draw_rect(Rect2(ox, float(C.GROUND_Y) - 30, vw, 30), Color(0.15, 0.08, 0.10, 0.18))
 
 func _draw_platforms() -> void:
-	for plat in current_platforms:
+	for plat_v in current_platforms:
+		var plat    := plat_v as Rect2
 		var is_ground := plat.size.y > 50  # земля vs платформа
 
 		if is_ground:
@@ -434,7 +436,7 @@ func _draw_hud(ox: float, oy: float) -> void:
 
 	# === ШКАЛА ОДЕРЖИМОСТІ ===
 	var obs_max := float(C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS)
-	var obs_pct := player.obsession_fill / obs_max
+	var obs_pct: float = float(player.obsession_fill) / obs_max
 	var ob_y    := bar_y + bar_h + 8
 	var ob_w    := bar_w
 

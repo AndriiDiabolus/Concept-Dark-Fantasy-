@@ -74,8 +74,8 @@ func _update_ai(_delta: float) -> void:
 
 	var dx     := target.global_position.x - global_position.x
 	var dist   := absf(dx)
-	var chase  := enemy_data["chase_range"]
-	var arange := enemy_data["attack_range"]
+	var chase:  float = enemy_data["chase_range"]
+	var arange: float = enemy_data["attack_range"]
 
 	match _ai_state:
 		"patrol":
@@ -100,7 +100,7 @@ func _update_ai(_delta: float) -> void:
 				_start_telegraph()
 
 func _do_patrol(delta: float) -> void:
-	var spd := enemy_data["speed"] * 0.45
+	var spd: float = float(enemy_data["speed"]) * 0.45
 	velocity.x = patrol_dir * spd
 	facing_right = patrol_dir > 0
 	patrol_walked += spd * delta
@@ -110,7 +110,7 @@ func _do_patrol(delta: float) -> void:
 
 func _do_chase(dx: float) -> void:
 	facing_right = dx > 0
-	velocity.x = sign(dx) * enemy_data["speed"]
+	velocity.x = sign(dx) * float(enemy_data["speed"])
 
 func _start_telegraph() -> void:
 	is_telegraphing = true
