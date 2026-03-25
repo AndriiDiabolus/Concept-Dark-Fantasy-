@@ -43,8 +43,7 @@ signal attack_hit(damage)
 
 func _ready() -> void:
 	print("🗡️ Yaromir READY at position: %v" % global_position)
-	set_process(true)  # КРИТИЧНО: включаем _process()
-	set_process_unhandled_input(true)  # Обработка unhandled input
+	set_process(true)
 	_setup_visuals()
 	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
 
@@ -73,56 +72,13 @@ func _process(delta: float) -> void:
 	# КРИТИЧНО: перерисовываем каждый кадр
 	queue_redraw()
 
-func _unhandled_input(event: InputEvent) -> void:
-	"""Обрабатываем input события напрямую"""
-	if event is InputEventKey:
-		if event.pressed:
-			match event.keycode:
-				KEY_W:
-					pressed_keys[KEY_W] = true
-				KEY_A:
-					pressed_keys[KEY_A] = true
-				KEY_S:
-					pressed_keys[KEY_S] = true
-				KEY_D:
-					pressed_keys[KEY_D] = true
-				KEY_R:
-					pressed_keys[KEY_R] = true
-				KEY_SPACE:
-					pressed_keys[KEY_SPACE] = true
-		else:
-			match event.keycode:
-				KEY_W:
-					pressed_keys.erase(KEY_W)
-				KEY_A:
-					pressed_keys.erase(KEY_A)
-				KEY_S:
-					pressed_keys.erase(KEY_S)
-				KEY_D:
-					pressed_keys.erase(KEY_D)
-				KEY_R:
-					pressed_keys.erase(KEY_R)
-				KEY_SPACE:
-					pressed_keys.erase(KEY_SPACE)
-
 func _handle_input() -> void:
-	"""pressed_keys уже заполнены из _unhandled_input()"""
-	# Блок (R)
 	is_blocking = pressed_keys.has(KEY_R)
-
-	# Атака (Space)
-	if pressed_keys.has(KEY_SPACE) and not is_blocking:
-		_on_attack_input()
-
-	# Одержимость (V)
-	if pressed_keys.has(KEY_V):
-		_try_activate_obsession()
 
 #region MOVEMENT
 func _update_movement(delta: float) -> void:
 	var input_dir = Vector2.ZERO
 
-	# Читаем WASD из pressed_keys
 	if pressed_keys.has(KEY_W):
 		input_dir.y -= 1
 	if pressed_keys.has(KEY_S):

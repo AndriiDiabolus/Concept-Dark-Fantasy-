@@ -44,23 +44,38 @@ func _process(delta: float) -> void:
 	queue_redraw()  # Перерисовываем каждый кадр
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey:
-		if event.keycode == KEY_ESCAPE:
-			if current_state == C.STATE.PAUSE:
-				get_tree().paused = false
-				current_state = C.STATE.PLAY
-			elif current_state == C.STATE.PLAY:
-				get_tree().paused = true
-				current_state = C.STATE.PAUSE
-		elif event.keycode == KEY_ENTER:
-			if current_state == C.STATE.LOST:
-				# Перезагрузить уровень
-				get_tree().paused = false
-				load_level(current_level)
-			elif current_state == C.STATE.WON:
-				# Следующий уровень
-				get_tree().paused = false
-				load_level(current_level + 1)
+	if not (event is InputEventKey):
+		return
+	var key = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+
+
+	# Системные клавиши
+	if key == KEY_ESCAPE:
+		if current_state == C.STATE.PAUSE:
+			get_tree().paused = false
+			current_state = C.STATE.PLAY
+		elif current_state == C.STATE.PLAY:
+			get_tree().paused = true
+			current_state = C.STATE.PAUSE
+	elif key == KEY_ENTER:
+		if current_state == C.STATE.LOST:
+			get_tree().paused = false
+			load_level(current_level)
+		elif current_state == C.STATE.WON:
+			get_tree().paused = false
+			load_level(current_level + 1)
+
+	# Ввод игрока — передаём напрямую в player
+	if player and current_state == C.STATE.PLAY:
+		if event.pressed:
+			player.pressed_keys[key] = true
+			if not event.echo:
+				if key == KEY_SPACE and not player.is_blocking:
+					player._on_attack_input()
+				elif key == KEY_V:
+					player._try_activate_obsession()
+		else:
+			player.pressed_keys.erase(key)
 
 func _draw() -> void:
 	# Фон зависит от уровня
@@ -367,7 +382,7 @@ func _draw_hud() -> void:
 	draw_line(Vector2(0, 60), Vector2(C.VIEWPORT_WIDTH, 60), Color(0.5, 0.4, 0.3), 2.0)
 
 	# HP (слева)
-	draw_string(get_theme_default_font(), Vector2(20, 25), "HP: %d/%d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(20, 25), "HP: %d/%d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
 
 	# Level и Wave (в центре)
 	var level_text = "Level %d | Wave %d/%d" % [
@@ -375,11 +390,11 @@ func _draw_hud() -> void:
 		waves_complete + 1,
 		C.LEVELS[current_level].enemy_waves.size()
 	]
-	draw_string(get_theme_default_font(), Vector2(C.VIEWPORT_WIDTH/2 - 150, 25), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.8, 0.8, 0.8))
+	draw_string(ThemeDB.fallback_font, Vector2(C.VIEWPORT_WIDTH/2 - 150, 25), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.8, 0.8, 0.8))
 
 	# Время (справа)
 	var time_str = "Time: %.1fs" % level_timer
-	draw_string(get_theme_default_font(), Vector2(C.VIEWPORT_WIDTH - 200, 25), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.7, 0.9, 0.7))
+	draw_string(ThemeDB.fallback_font, Vector2(C.VIEWPORT_WIDTH - 200, 25), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.7, 0.9, 0.7))
 
 	# Obsession bar (внизу слева в HUD)
 	_draw_obsession_bar()
@@ -411,7 +426,7 @@ func _draw_obsession_bar() -> void:
 
 	# Уровень одержимости
 	var level_text = "Obs: %d/3" % player.obsession_level
-	draw_string(get_theme_default_font(), Vector2(bar_x + 210, bar_y), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.5, 1.0))
+	draw_string(ThemeDB.fallback_font, Vector2(bar_x + 210, bar_y), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.5, 1.0))
 
 func _draw_pause_screen() -> void:
 	# Полусерый оверлей
@@ -419,7 +434,7 @@ func _draw_pause_screen() -> void:
 
 	# "PAUSE" текст в центре
 	var pause_text = "ПАУЗА"
-	var font = get_theme_default_font()
+	var font = ThemeDB.fallback_font
 	var text_size = font.get_string_size(pause_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
 	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 40), pause_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Color.WHITE)
 
@@ -432,7 +447,7 @@ func _draw_lost_screen() -> void:
 	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.8, 0.1, 0.1, 0.6))
 
 	# "GAME OVER" текст
-	var font = get_theme_default_font()
+	var font = ThemeDB.fallback_font
 	var game_over_text = "ПОРАЖЕНИЕ"
 	var text_size = font.get_string_size(game_over_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
 	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), game_over_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color.RED)
@@ -454,7 +469,7 @@ func _draw_won_screen() -> void:
 	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.6, 0.1, 0.6))
 
 	# "VICTORY" текст
-	var font = get_theme_default_font()
+	var font = ThemeDB.fallback_font
 	var victory_text = "УРОВЕНЬ ПРОЙДЕН!"
 	var text_size = font.get_string_size(victory_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
 	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), victory_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color(0.2, 1.0, 0.2))
