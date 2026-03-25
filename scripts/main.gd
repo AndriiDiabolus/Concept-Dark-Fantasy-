@@ -28,9 +28,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process_input(true)
 	set_process_unhandled_input(true)
-	# В embedded-режиме SubViewport должен обрабатывать ввод локально
 	get_viewport().handle_input_locally = true
-	print("🎮 Sabbath v0.2 — Platformer")
+	_autotest = "--autotest" in OS.get_cmdline_user_args()
+	print("🎮 Sabbath v0.2 — Platformer%s" % (" [AUTOTEST]" if _autotest else ""))
 	_setup_scene()
 	_setup_input_catcher()
 	load_level(0)
@@ -44,10 +44,9 @@ func _setup_scene() -> void:
 	if get_node_or_null("Player") == null:
 		player = Node2D.new()
 		player.name = "Player"
-		add_child(player)
 		var ps = load("res://scripts/player.gd")
-		player.set_script(ps)
-		player.position = Vector2(150, C.GROUND_Y - 40)
+		player.set_script(ps)   # set_script ДО add_child — _ready() сработает при входе в дерево
+		add_child(player)
 		player.player_died.connect(_on_player_died)
 	else:
 		player = get_node("Player")
@@ -249,9 +248,9 @@ func _get_level_data(idx: int) -> Dictionary:
 func _spawn_enemy(type: String, pos: Vector2) -> void:
 	var e := Node2D.new()
 	e.name = "Enemy_%s_%d" % [type, enemies.size()]
-	add_child(e)
 	var es = load("res://scripts/enemy.gd")
-	e.set_script(es)
+	e.set_script(es)       # set_script ДО add_child
+	add_child(e)
 	e.global_position = pos
 	e.setup(type, player)
 	e.died.connect(_on_enemy_died)
@@ -287,7 +286,12 @@ func resolve_collision(pos: Vector2, char_size: Vector2, move_delta: Vector2) ->
 
 # ──────────────────────────────────────────────
 #region Game Loop
+var _autotest: bool = false
+var _autotest_frame: int = 0
+
 func _process(delta: float) -> void:
+	if _autotest:
+		_run_autotest()
 	match current_state:
 		C.STATE.PLAY:
 			level_timer += delta
@@ -296,6 +300,50 @@ func _process(delta: float) -> void:
 		_:
 			pass
 	queue_redraw()
+
+# Автотест — запускается при --autotest аргументе
+# Симулирует нажатия клавиш через Input.parse_input_event()
+func _run_autotest() -> void:
+	_autotest_frame += 1
+	var f := _autotest_frame
+
+	# Кадр 30: нажать D (двигаться вправо)
+	if f == 30:
+		_sim_key(KEY_D, true)
+		print("🧪 [%d] Нажат D, игрок X=%.1f" % [f, player.global_position.x if player else 0])
+	# Кадр 90: отпустить D
+	if f == 90:
+		_sim_key(KEY_D, false)
+		print("🧪 [%d] Отпущен D, игрок X=%.1f" % [f, player.global_position.x if player else 0])
+	# Кадр 100: прыжок W
+	if f == 100:
+		_sim_key(KEY_W, true)
+		print("🧪 [%d] Нажат W (прыжок), Y=%.1f" % [f, player.global_position.y if player else 0])
+	if f == 103: _sim_key(KEY_W, false)
+	# Кадр 130: результат
+	if f == 130:
+		if player:
+			print("🧪 ИТОГ: X=%.1f Y=%.1f | на земле: %s" % [
+				player.global_position.x, player.global_position.y, str(player.is_on_ground)
+			])
+			if player.global_position.x > 160:
+				print("✅ ДВИЖЕНИЕ РАБОТАЕТ")
+			else:
+				print("❌ ДВИЖЕНИЕ НЕ РАБОТАЕТ — игрок не сдвинулся с X=150")
+		get_tree().quit()
+
+func _sim_key(keycode: int, pressed: bool) -> void:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = keycode
+	ev.keycode = keycode
+	ev.pressed = pressed
+	Input.parse_input_event(ev)
+	# Также пишем напрямую в pressed_keys игрока
+	if player:
+		if pressed:
+			player.pressed_keys[keycode] = true
+		else:
+			player.pressed_keys.erase(keycode)
 
 func _update_camera() -> void:
 	if not player or not camera:
