@@ -74,17 +74,19 @@ func _update_ai(_delta: float) -> void:
 
 	var dx     := target.global_position.x - global_position.x
 	var dist   := absf(dx)
+	var dy_raw := absf(target.global_position.y - global_position.y)
+	var same_level: bool = dy_raw <= 80 or enemy_type == "musketeer"
 	var chase:  float = enemy_data["chase_range"]
 	var arange: float = enemy_data["attack_range"]
 
 	match _ai_state:
 		"patrol":
-			if dist < chase:
+			if dist < chase and same_level:
 				_ai_state = "chase"
 			else:
 				_do_patrol(_delta)
 		"chase":
-			if dist > chase * 1.4:
+			if dist > chase * 1.4 or not same_level:
 				_ai_state = "patrol"
 				patrol_walked = 0.0
 			elif dist <= arange:
@@ -94,7 +96,7 @@ func _update_ai(_delta: float) -> void:
 				_do_chase(dx)
 		"attack":
 			velocity.x = 0.0
-			if dist > arange * 1.3:
+			if dist > arange * 1.3 or not same_level:
 				_ai_state = "chase"
 			elif attack_cooldown <= 0:
 				_start_telegraph()
@@ -121,7 +123,8 @@ func _do_attack() -> void:
 	if target == null or not is_instance_valid(target) or not target.is_alive:
 		return
 	var dy := absf(target.global_position.y - global_position.y)
-	if enemy_type == "musketeer" and dy > 130:
+	# Мушкетёр стреляет только по горизонтали, милишники атакуют только на одном уровне
+	if dy > 80:
 		return
 	target.take_damage(enemy_data["damage"])
 #endregion

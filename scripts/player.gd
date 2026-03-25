@@ -21,6 +21,10 @@ var is_moving: bool = false
 var attack_combo: int = 0
 var attack_cooldown: float = 0.0
 var attack_timer: float = 0.0
+var dash_cooldown: float = 0.0
+var dash_timer: float = 0.0
+var is_dashing: bool = false
+var dash_dir: int = 0
 #endregion
 
 #region Одержимість
@@ -37,6 +41,8 @@ var pressed_keys: Dictionary = {}
 var _prev_w: bool = false
 var _prev_space: bool = false
 var _prev_v: bool = false
+var _prev_shift_a: bool = false
+var _prev_shift_d: bool = false
 #endregion
 
 #region Анімація
@@ -59,10 +65,18 @@ func _process(delta: float) -> void:
 	var cur_w     := Input.is_key_pressed(KEY_W)
 	var cur_space := Input.is_key_pressed(KEY_SPACE)
 	var cur_v     := Input.is_key_pressed(KEY_V)
+	var cur_shift := Input.is_key_pressed(KEY_SHIFT)
+	var cur_a     := Input.is_key_pressed(KEY_A)  or pressed_keys.has(KEY_A)
+	var cur_d     := Input.is_key_pressed(KEY_D)  or pressed_keys.has(KEY_D)
+	var cur_sa    := cur_shift and cur_a
+	var cur_sd    := cur_shift and cur_d
 	if cur_w     and not _prev_w:     do_jump()
 	if cur_space and not _prev_space: do_attack()
 	if cur_v     and not _prev_v:     do_obsession()
+	if cur_sa    and not _prev_shift_a: do_dash(-1)
+	if cur_sd    and not _prev_shift_d: do_dash(1)
 	_prev_w = cur_w; _prev_space = cur_space; _prev_v = cur_v
+	_prev_shift_a = cur_sa; _prev_shift_d = cur_sd
 
 	_handle_input()
 	_apply_gravity(delta)
@@ -86,18 +100,23 @@ func _apply_gravity(delta: float) -> void:
 		velocity.y = minf(velocity.y, C.TERMINAL_VELOCITY)
 
 func _apply_movement(delta: float) -> void:
-	var h := 0
-	if Input.is_key_pressed(KEY_D) or pressed_keys.has(KEY_D): h += 1
-	if Input.is_key_pressed(KEY_A) or pressed_keys.has(KEY_A): h -= 1
-
-	if h != 0 and not is_blocking:
-		var spd = C.PLAYER_SPEED * (1.4 if obsession_active else 1.0)
-		velocity.x = h * spd
-		facing_right = h > 0
+	if is_dashing:
+		# Рывок: фиксированная скорость, нельзя прервать
+		velocity.x = dash_dir * C.PLAYER_DASH_SPEED
 		is_moving = true
 	else:
-		velocity.x *= 0.55
-		is_moving = absf(velocity.x) > 12.0
+		var h := 0
+		if Input.is_key_pressed(KEY_D) or pressed_keys.has(KEY_D): h += 1
+		if Input.is_key_pressed(KEY_A) or pressed_keys.has(KEY_A): h -= 1
+
+		if h != 0 and not is_blocking:
+			var spd = C.PLAYER_SPEED * (1.4 if obsession_active else 1.0)
+			velocity.x = h * spd
+			facing_right = h > 0
+			is_moving = true
+		else:
+			velocity.x *= 0.55
+			is_moving = absf(velocity.x) > 12.0
 
 	var main = get_parent()
 	if main and main.has_method("resolve_collision"):
@@ -113,6 +132,16 @@ func do_jump() -> void:
 	if is_on_ground and not is_blocking and not is_recovering:
 		velocity.y = C.JUMP_FORCE
 		is_on_ground = false
+
+func do_dash(dir: int) -> void:
+	if dash_cooldown > 0 or is_blocking or is_dashing:
+		return
+	is_dashing = true
+	dash_dir = dir
+	dash_timer = C.PLAYER_DASH_DURATION
+	dash_cooldown = C.PLAYER_DASH_COOLDOWN
+	facing_right = dir > 0
+	print("💨 Рывок %s" % ("вправо" if dir > 0 else "влево"))
 #endregion
 
 #region Бій
@@ -159,7 +188,7 @@ func do_obsession() -> void:
 	print("💜 ОДЕРЖИМОСТЬ активирована! Стадия деградации: %d" % degrade_stage)
 
 func take_damage(dmg: int) -> void:
-	if not is_alive or is_recovering:
+	if not is_alive or is_recovering or is_dashing:
 		return
 	if randf() < C.PLAYER_DODGE_CHANCE:
 		print("✨ Уклонение!")
@@ -201,6 +230,11 @@ func _update_timers(delta: float) -> void:
 	if attack_cooldown > 0: attack_cooldown -= delta
 	if attack_timer > 0:    attack_timer    -= delta
 	if obsession_cooldown > 0: obsession_cooldown -= delta
+	if dash_cooldown > 0:   dash_cooldown   -= delta
+	if dash_timer > 0:
+		dash_timer -= delta
+		if dash_timer <= 0.0:
+			is_dashing = false
 #endregion
 
 #region Статус
@@ -234,6 +268,8 @@ func _draw() -> void:
 		sword = Color(0.72, 0.20, 1.0)
 
 	var alpha := 0.4 if (is_recovering and _frame % 8 < 4) else 1.0
+	if is_dashing:
+		alpha = 0.7 if (_frame % 4 < 2) else 1.0
 	skin.a = alpha; armor.a = alpha; cloth.a = alpha
 
 	var leg_a := sin(_frame * 0.35) * 9.0 if (is_moving and is_on_ground) else 0.0
@@ -292,6 +328,12 @@ func _draw() -> void:
 	# Деградація (перший рівень — фіолетова рука)
 	if degrade_stage >= 1 and not obsession_active:
 		draw_rect(Rect2(-dir * 14, -8, 10, 16), Color(0.65, 0.1, 0.9, 0.4))
+
+	# Рывок — синяя аура
+	if is_dashing:
+		var dash_pulse := sin(_frame * 0.5) * 0.3 + 0.7
+		draw_circle(Vector2.ZERO, 38, Color(0.2, 0.6, 1.0, dash_pulse * 0.30))
+		draw_circle(Vector2.ZERO, 55, Color(0.1, 0.4, 0.9, dash_pulse * 0.12))
 
 	# HP полоска
 	var hp_pct := float(current_hp) / float(C.PLAYER_HP_MAX)

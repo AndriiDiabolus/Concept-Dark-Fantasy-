@@ -31,6 +31,10 @@ const PLAYER_OBSESSION_FILL_PER_ATTACK: float = 8.0   # ~12 ударов на у
 const PLAYER_OBSESSION_FILL_PER_DAMAGE: float = 5.0   # урон тоже заряжает
 const PLAYER_OBSESSION_LEVELS: int = 3
 const PLAYER_OBSESSION_LEVEL_THRESHOLD: float = 100.0
+const PLAYER_DASH_SPEED: float = 650.0
+const PLAYER_DASH_DURATION: float = 0.18
+const PLAYER_DASH_INVINCIBLE: float = 0.18
+const PLAYER_DASH_COOLDOWN: float = 1.2
 #endregion
 
 #region Вороги
@@ -57,5 +61,5 @@ const ENEMY_TYPES: Dictionary = {
 #endregion
 
 #region Стани
-enum STATE { PLAY, PAUSE, LOST, WON }
+enum STATE { SPLASH, PLAY, PAUSE, LOST, WON }
 #endregion
