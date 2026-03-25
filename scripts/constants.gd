@@ -27,8 +27,8 @@ const PLAYER_DODGE_CHANCE: float = 0.05
 const PLAYER_OBSESSION_DURATION: float = 20.0
 const PLAYER_OBSESSION_COOLDOWN: float = 120.0
 const PLAYER_OBSESSION_RECOVERY: float = 2.0
-const PLAYER_OBSESSION_FILL_PER_ATTACK: float = 1.5
-const PLAYER_OBSESSION_FILL_PER_DAMAGE: float = 0.8
+const PLAYER_OBSESSION_FILL_PER_ATTACK: float = 8.0   # ~12 ударов на уровень
+const PLAYER_OBSESSION_FILL_PER_DAMAGE: float = 5.0   # урон тоже заряжает
 const PLAYER_OBSESSION_LEVELS: int = 3
 const PLAYER_OBSESSION_LEVEL_THRESHOLD: float = 100.0
 #endregion
