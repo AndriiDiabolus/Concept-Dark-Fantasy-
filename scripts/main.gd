@@ -7,6 +7,7 @@ extends Node2D
 var current_state: int = C.STATE.PLAY
 var current_level: int = 0
 var level_timer: float = 0.0
+var _focused: bool = false   # true после первого клика — фокус получен
 #endregion
 
 #region Ноди
@@ -289,13 +290,22 @@ func _check_win() -> void:
 #endregion
 
 # ──────────────────────────────────────────────
-#region Ввід
+#region Ввод
 func _input(event: InputEvent) -> void:
+	# Клик мышью → даём фокус окну
+	if event is InputEventMouseButton and event.pressed:
+		_focused = true
+		get_window().grab_focus()
+		get_viewport().set_input_as_handled()
+		return
+
+	if not _focused:
+		return
 	if not (event is InputEventKey):
 		return
 	var key: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 
-	# Системні клавіші
+	# Системные клавиши
 	if key == KEY_ESCAPE:
 		if current_state == C.STATE.PAUSE:
 			get_tree().paused = false
@@ -358,6 +368,16 @@ func _draw() -> void:
 		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "Нажми ESC чтобы продолжить")
 		C.STATE.LOST:  _draw_overlay(ox, oy, "ГИБЕЛЬ",  Color(0.35, 0.0, 0.0, 0.65), "Нажми Enter чтобы повторить")
 		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Нажми Enter для следующего уровня")
+
+	# Экран фокуса — показывается пока не кликнули
+	if not _focused:
+		var font := ThemeDB.fallback_font
+		var vw := float(C.VIEWPORT_WIDTH)
+		var vh := float(C.VIEWPORT_HEIGHT)
+		draw_rect(Rect2(ox, oy, vw, vh), Color(0.0, 0.0, 0.0, 0.65))
+		draw_string(font, Vector2(ox + vw * 0.5 - 220, oy + vh * 0.5 - 10),
+			"КЛИКНИ НА ЭКРАН ЧТОБЫ НАЧАТЬ",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(1.0, 0.85, 0.3))
 
 func _draw_background(ox: float, _oy: float) -> void:
 	var vw := float(C.VIEWPORT_WIDTH)
