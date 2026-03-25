@@ -1,139 +1,49 @@
-## main.gd — Sabbath - among life and death
-## Main game controller & level manager
+## main.gd — Sabbath: Among Life and Death
+## Сайд-скроллер-платформер: фізика, камера, рівні, HUD
 
 extends Node2D
 
-# Используем Enemy из enemy.gd
-var Enemy = preload("res://scripts/enemy.gd")
-
-## Game State
+#region Стан гри
 var current_state: int = C.STATE.PLAY
 var current_level: int = 0
+var level_timer: float = 0.0
+#endregion
 
-## References
+#region Ноди
 var player: Node2D
 var camera: Camera2D
-var ui_layer: CanvasLayer
 var enemies: Array[Node2D] = []
+#endregion
 
-## Level Management
-var current_wave: int = 0
-var waves_complete: int = 0
-var current_wave_enemies: Array[Node2D] = []
-var level_timer: float = 0.0
+#region Рівень
+var current_platforms: Array = []
+var level_width: float = 3600.0
+var level_name: String = ""
+#endregion
 
+# ──────────────────────────────────────────────
 func _ready() -> void:
-	print("🎮 Sabbath - among life and death v0.1.0")
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	print("🎮 Sabbath v0.2 — Platformer")
 	_setup_scene()
-	_init_game()
+	load_level(0)
 
-func _process(delta: float) -> void:
-	level_timer += delta
-	queue_redraw()
-
-	match current_state:
-		C.STATE.PLAY:
-			_update_play(delta)
-		C.STATE.PAUSE:
-			pass
-		C.STATE.LOST:
-			pass
-		C.STATE.WON:
-			pass
-
-	queue_redraw()  # Перерисовываем каждый кадр
-
-func _input(event: InputEvent) -> void:
-	if not (event is InputEventKey):
-		return
-	var key = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
-
-
-	# Системные клавиши
-	if key == KEY_ESCAPE:
-		if current_state == C.STATE.PAUSE:
-			get_tree().paused = false
-			current_state = C.STATE.PLAY
-		elif current_state == C.STATE.PLAY:
-			get_tree().paused = true
-			current_state = C.STATE.PAUSE
-	elif key == KEY_ENTER:
-		if current_state == C.STATE.LOST:
-			get_tree().paused = false
-			load_level(current_level)
-		elif current_state == C.STATE.WON:
-			get_tree().paused = false
-			load_level(current_level + 1)
-
-	# Ввод игрока — передаём напрямую в player
-	if player and current_state == C.STATE.PLAY:
-		if event.pressed:
-			player.pressed_keys[key] = true
-			if not event.echo:
-				if key == KEY_SPACE and not player.is_blocking:
-					player._on_attack_input()
-				elif key == KEY_V:
-					player._try_activate_obsession()
-		else:
-			player.pressed_keys.erase(key)
-
-func _draw() -> void:
-	# Фон зависит от уровня
-	match current_level:
-		0:  # Level 1 - Zich Ruins
-			_draw_level1_bg()
-		1:  # Level 2 - Villages
-			_draw_level2_bg()
-		2:  # Level 3 - Approach
-			_draw_level3_bg()
-		3:  # Level 4 - Citadel
-			_draw_level4_bg()
-		_:
-			draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.1, 0.15))
-
-	# Рисуем HUD поверх всего
-	_draw_hud()
-
-	# Рисуем состояние игры (пауза, проигрыш, победа)
-	match current_state:
-		C.STATE.PAUSE:
-			_draw_pause_screen()
-		C.STATE.LOST:
-			_draw_lost_screen()
-		C.STATE.WON:
-			_draw_won_screen()
-
-## Scene Setup
+# ──────────────────────────────────────────────
+#region Ініціалізація сцени
 func _setup_scene() -> void:
-	print("=== SETTING UP SCENE ===")
-
-	# Создаём базовые узлы если их нет
+	# Гравець
 	if get_node_or_null("Player") == null:
-		print("Creating Player node...")
 		player = Node2D.new()
 		player.name = "Player"
 		add_child(player)
-		print("Player node added to scene")
-
-		# Добавляем player.gd скрипт
-		print("Loading player script...")
-		var player_script = load("res://scripts/player.gd")
-		if player_script == null:
-			print("ERROR: Could not load player script!")
-			return
-
-		print("Attaching script to player...")
-		player.set_script(player_script)
-		player.position = Vector2(C.VIEWPORT_WIDTH / 2, C.VIEWPORT_HEIGHT / 2)
-		print("✓ Player created at: %v" % player.position)
-
-		# Явно вызываем _ready если он не был вызван
-		if player.has_method("_ready"):
-			player._ready()
+		var ps = load("res://scripts/player.gd")
+		player.set_script(ps)
+		player.position = Vector2(150, C.GROUND_Y - 40)
+		player.player_died.connect(_on_player_died)
 	else:
 		player = get_node("Player")
-		print("Player already exists in scene")
 
+	# Камера
 	if get_node_or_null("Camera2D") == null:
 		camera = Camera2D.new()
 		camera.name = "Camera2D"
@@ -141,356 +51,423 @@ func _setup_scene() -> void:
 		camera.make_current()
 	else:
 		camera = get_node("Camera2D")
+	camera.global_position = Vector2(C.VIEWPORT_WIDTH / 2.0, C.VIEWPORT_HEIGHT / 2.0)
+#endregion
 
-	# Привязываем камеру к игроку
-	if camera.get_parent() != self:
-		remove_child(camera)
-		add_child(camera)
-	camera.global_position = player.global_position
-
-	# Создаём UI слой
-	if get_node_or_null("UILayer") == null:
-		ui_layer = CanvasLayer.new()
-		ui_layer.name = "UILayer"
-		add_child(ui_layer)
-
-	# Подключаем сигналы игрока
-	if player.has_signal("player_died"):
-		if not player.player_died.is_connected(_on_player_died):
-			player.player_died.connect(_on_player_died)
-
-func _init_game() -> void:
-	print("📍 Loading Level 1: Zich Ruins")
-	load_level(0)
-
-## Level Loading
-func load_level(level_idx: int) -> void:
-	current_level = level_idx
-	var level_data = C.LEVELS[level_idx]
-
-	print("📍 Level %d: %s" % [level_idx + 1, level_data.name])
-	print("   Total waves: %d" % level_data.enemy_waves.size())
-
-	current_wave = 0
-	waves_complete = 0
+# ──────────────────────────────────────────────
+#region Завантаження рівня
+func load_level(idx: int) -> void:
+	current_level = idx
 	level_timer = 0.0
-	current_wave_enemies.clear()
-
 	current_state = C.STATE.PLAY
-	_spawn_next_wave()
 
-## Enemy Spawning
-func _spawn_next_wave() -> void:
-	if current_wave >= C.LEVELS[current_level].enemy_waves.size():
-		_on_level_complete()
+	# Очищаємо ворогів
+	for e in enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	enemies.clear()
+
+	var data := _get_level_data(idx)
+	current_platforms = data["platforms"]
+	level_width       = data["width"]
+	level_name        = data["name"]
+
+	# Ресет гравця
+	if player:
+		player.global_position = Vector2(150, C.GROUND_Y - 40)
+		player.velocity = Vector2.ZERO
+		player.pressed_keys.clear()
+
+	# Спавн ворогів
+	for ed in data["enemies"]:
+		_spawn_enemy(ed["type"], Vector2(ed["x"], ed["y"]))
+
+	print("📍 Рівень %d: %s | Ворогів: %d" % [idx + 1, level_name, enemies.size()])
+
+func _get_level_data(idx: int) -> Dictionary:
+	var gnd := float(C.GROUND_Y)
+	match idx:
+		0:  # Січ — Руїни
+			return {
+				"name": "Січ — Руїни",
+				"width": 3600.0,
+				"platforms": [
+					Rect2(0,    gnd,       3600, 400),   # земля
+					Rect2(320,  gnd - 140, 200,  22),
+					Rect2(650,  gnd - 220, 170,  22),
+					Rect2(960,  gnd - 150, 210,  22),
+					Rect2(1280, gnd - 260, 180,  22),
+					Rect2(1600, gnd - 180, 200,  22),
+					Rect2(1950, gnd - 250, 170,  22),
+					Rect2(2280, gnd - 160, 210,  22),
+					Rect2(2650, gnd - 220, 180,  22),
+					Rect2(3000, gnd - 150, 200,  22),
+				],
+				"enemies": [
+					{"type": "pehota",    "x": 550,  "y": gnd - 34},
+					{"type": "pehota",    "x": 950,  "y": gnd - 34},
+					{"type": "pehota",    "x": 1350, "y": gnd - 34},
+					{"type": "pehota",    "x": 1800, "y": gnd - 34},
+					{"type": "pehota",    "x": 2300, "y": gnd - 34},
+					{"type": "pehota",    "x": 2800, "y": gnd - 34},
+					{"type": "pehota",    "x": 3200, "y": gnd - 34},
+				],
+			}
+		1:  # Спалені Села
+			return {
+				"name": "Спалені Села",
+				"width": 4200.0,
+				"platforms": [
+					Rect2(0,    gnd,       4200, 400),
+					Rect2(250,  gnd - 160, 180,  22),
+					Rect2(580,  gnd - 240, 160,  22),
+					Rect2(900,  gnd - 160, 200,  22),
+					Rect2(1250, gnd - 270, 180,  22),
+					Rect2(1600, gnd - 190, 200,  22),
+					Rect2(1980, gnd - 260, 170,  22),
+					Rect2(2350, gnd - 180, 200,  22),
+					Rect2(2750, gnd - 240, 180,  22),
+					Rect2(3150, gnd - 170, 200,  22),
+					Rect2(3600, gnd - 240, 180,  22),
+				],
+				"enemies": [
+					{"type": "pehota",    "x": 400,  "y": gnd - 34},
+					{"type": "musketeer", "x": 750,  "y": gnd - 34},
+					{"type": "pehota",    "x": 1100, "y": gnd - 34},
+					{"type": "piker",     "x": 1500, "y": gnd - 36},
+					{"type": "musketeer", "x": 1900, "y": gnd - 34},
+					{"type": "pehota",    "x": 2400, "y": gnd - 34},
+					{"type": "piker",     "x": 2900, "y": gnd - 36},
+					{"type": "musketeer", "x": 3400, "y": gnd - 34},
+					{"type": "pehota",    "x": 3900, "y": gnd - 34},
+				],
+			}
+		2:  # Підхід до Замку
+			return {
+				"name": "Підхід до Замку",
+				"width": 4800.0,
+				"platforms": [
+					Rect2(0,    gnd,       4800, 400),
+					Rect2(200,  gnd - 150, 160,  22),
+					Rect2(480,  gnd - 260, 160,  22),
+					Rect2(760,  gnd - 370, 160,  22),
+					Rect2(1100, gnd - 190, 200,  22),
+					Rect2(1450, gnd - 280, 180,  22),
+					Rect2(1850, gnd - 190, 200,  22),
+					Rect2(2250, gnd - 280, 170,  22),
+					Rect2(2650, gnd - 190, 200,  22),
+					Rect2(3100, gnd - 280, 180,  22),
+					Rect2(3550, gnd - 190, 200,  22),
+					Rect2(4050, gnd - 280, 180,  22),
+					Rect2(4450, gnd - 190, 200,  22),
+				],
+				"enemies": [
+					{"type": "pehota",    "x": 400,  "y": gnd - 34},
+					{"type": "piker",     "x": 800,  "y": gnd - 36},
+					{"type": "musketeer", "x": 1200, "y": gnd - 34},
+					{"type": "pehota",    "x": 1650, "y": gnd - 34},
+					{"type": "piker",     "x": 2100, "y": gnd - 36},
+					{"type": "musketeer", "x": 2600, "y": gnd - 34},
+					{"type": "pehota",    "x": 3100, "y": gnd - 34},
+					{"type": "piker",     "x": 3600, "y": gnd - 36},
+					{"type": "musketeer", "x": 4100, "y": gnd - 34},
+					{"type": "pehota",    "x": 4500, "y": gnd - 34},
+				],
+			}
+		3:  # Цитадель
+			return {
+				"name": "Цитадель",
+				"width": 5500.0,
+				"platforms": [
+					Rect2(0,    gnd,       5500, 400),
+					Rect2(280,  gnd - 170, 180,  22),
+					Rect2(600,  gnd - 270, 160,  22),
+					Rect2(950,  gnd - 180, 200,  22),
+					Rect2(1350, gnd - 280, 180,  22),
+					Rect2(1750, gnd - 190, 200,  22),
+					Rect2(2150, gnd - 280, 170,  22),
+					Rect2(2550, gnd - 190, 200,  22),
+					Rect2(2950, gnd - 280, 180,  22),
+					Rect2(3350, gnd - 190, 200,  22),
+					Rect2(3750, gnd - 280, 180,  22),
+					Rect2(4150, gnd - 190, 200,  22),
+					Rect2(4550, gnd - 280, 180,  22),
+					Rect2(4950, gnd - 190, 200,  22),
+				],
+				"enemies": [
+					{"type": "pehota",    "x": 500,  "y": gnd - 34},
+					{"type": "musketeer", "x": 850,  "y": gnd - 34},
+					{"type": "piker",     "x": 1250, "y": gnd - 36},
+					{"type": "pehota",    "x": 1700, "y": gnd - 34},
+					{"type": "musketeer", "x": 2100, "y": gnd - 34},
+					{"type": "piker",     "x": 2550, "y": gnd - 36},
+					{"type": "pehota",    "x": 3000, "y": gnd - 34},
+					{"type": "musketeer", "x": 3450, "y": gnd - 34},
+					{"type": "piker",     "x": 3900, "y": gnd - 36},
+					{"type": "pehota",    "x": 4350, "y": gnd - 34},
+					{"type": "musketeer", "x": 4800, "y": gnd - 34},
+					{"type": "piker",     "x": 5200, "y": gnd - 36},
+				],
+			}
+		_:
+			return {"name": "???", "width": 3600.0, "platforms": [Rect2(0, float(C.GROUND_Y), 3600, 400)], "enemies": []}
+#endregion
+
+# ──────────────────────────────────────────────
+#region Спавн ворогів
+func _spawn_enemy(type: String, pos: Vector2) -> void:
+	var e := Node2D.new()
+	e.name = "Enemy_%s_%d" % [type, enemies.size()]
+	add_child(e)
+	var es = load("res://scripts/enemy.gd")
+	e.set_script(es)
+	e.global_position = pos
+	e.setup(type, player)
+	e.died.connect(_on_enemy_died)
+	enemies.append(e)
+#endregion
+
+# ──────────────────────────────────────────────
+#region Колізія (платформер)
+func resolve_collision(pos: Vector2, char_size: Vector2, move_delta: Vector2) -> Dictionary:
+	var new_pos   := pos + move_delta
+	var hw        := char_size.x * 0.5
+	var hh        := char_size.y * 0.5
+	var on_ground := false
+
+	for plat in current_platforms:
+		var prev_bottom := pos.y + hh
+		var new_bottom  := new_pos.y + hh
+		var plat_top    := plat.position.y
+
+		if prev_bottom <= plat_top + 2.0 and new_bottom >= plat_top:
+			var left  := new_pos.x - hw
+			var right := new_pos.x + hw
+			if right > plat.position.x and left < plat.position.x + plat.size.x:
+				new_pos.y = plat_top - hh
+				on_ground = true
+
+	# Межі рівня (горизонтальні)
+	new_pos.x = clampf(new_pos.x, hw + 5.0, level_width - hw - 5.0)
+
+	return {"pos": new_pos, "on_ground": on_ground}
+#endregion
+
+# ──────────────────────────────────────────────
+#region Game Loop
+func _process(delta: float) -> void:
+	match current_state:
+		C.STATE.PLAY:
+			level_timer += delta
+			_update_camera()
+			_check_win()
+		_:
+			pass
+	queue_redraw()
+
+func _update_camera() -> void:
+	if not player or not camera:
+		return
+	var half_w := C.VIEWPORT_WIDTH / 2.0
+	var half_h := C.VIEWPORT_HEIGHT / 2.0
+	var target_x := clampf(player.global_position.x, half_w, level_width - half_w)
+	camera.global_position.x = lerpf(camera.global_position.x, target_x, 0.14)
+	camera.global_position.y = half_h
+
+func _check_win() -> void:
+	var alive_count := 0
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive:
+			alive_count += 1
+	if alive_count == 0 and not enemies.is_empty():
+		current_state = C.STATE.WON
+		get_tree().paused = true
+#endregion
+
+# ──────────────────────────────────────────────
+#region Ввід
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key := event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+
+	# Системні клавіші
+	if key == KEY_ESCAPE:
+		if current_state == C.STATE.PAUSE:
+			get_tree().paused = false
+			current_state = C.STATE.PLAY
+		elif current_state == C.STATE.PLAY:
+			get_tree().paused = true
+			current_state = C.STATE.PAUSE
+		return
+	if key == KEY_ENTER:
+		if current_state == C.STATE.LOST:
+			get_tree().paused = false
+			load_level(current_level)
+		elif current_state == C.STATE.WON:
+			get_tree().paused = false
+			var next := current_level + 1
+			if next < 4:
+				load_level(next)
+			else:
+				load_level(0)  # повтор з початку
 		return
 
-	var wave_data = C.LEVELS[current_level].enemy_waves[current_wave]
-	print("🌊 Wave %d spawning..." % (current_wave + 1))
+	# Передаємо гравцеві
+	if not player or current_state != C.STATE.PLAY:
+		return
+	if event.pressed:
+		player.pressed_keys[key] = true
+		if not event.echo:
+			if key == KEY_W:
+				player.do_jump()
+			elif key == KEY_SPACE and not player.is_blocking:
+				player.do_attack()
+			elif key == KEY_V:
+				player.do_obsession()
+	else:
+		player.pressed_keys.erase(key)
+#endregion
 
-	# Спавним врагов волны
-	for enemy_config in wave_data:
-		var enemy_type = enemy_config.get("type", "pehota")
-		var count = enemy_config.get("count", 1)
-
-		for i in range(count):
-			var enemy = _spawn_enemy(enemy_type)
-			if enemy:
-				current_wave_enemies.append(enemy)
-
-	current_wave += 1
-
-func _spawn_enemy(enemy_type: String) -> Node2D:
-	# Проверяем валидность типа врага
-	if not C.ENEMY_TYPES.has(enemy_type):
-		print("❌ Unknown enemy type: %s" % enemy_type)
-		return null
-
-	# Создаём врага через enemy.gd
-	var enemy: Node2D = Node2D.new()
-	var enemy_script = load("res://scripts/enemy.gd")
-	if enemy_script == null:
-		print("❌ Could not load enemy.gd script!")
-		return null
-
-	enemy.set_script(enemy_script)
-	enemy.enemy_type = enemy_type  # Устанавливаем тип до _ready()
-
-	add_child(enemy)
-	enemy.global_position = Vector2(
-		randf_range(100, C.VIEWPORT_WIDTH - 100),
-		randf_range(100, C.VIEWPORT_HEIGHT - 100)
-	)
-
-	# Инициализируем врага (загружает конфиг из C.ENEMY_TYPES)
-	if enemy.has_method("_ready"):
-		enemy._ready()
-
-	# Привязываем target (игрок)
-	enemy.target = player
-
-	# Подключаем сигнал смерти
-	if enemy.has_signal("died"):
-		if not enemy.died.is_connected(_on_enemy_died):
-			enemy.died.connect(_on_enemy_died)
-
-	enemies.append(enemy)
-	print("   ✓ %s spawned at %v" % [enemy_type.capitalize(), enemy.global_position])
-
-	return enemy
-
-## Game Loop
-func _update_play(delta: float) -> void:
-	# Обновляем камеру
-	if camera:
-		camera.global_position = camera.global_position.lerp(player.global_position, 0.1)
-
-	# Перерисовываем все элементы
-	if player:
-		player.queue_redraw()
-	for enemy in current_wave_enemies:
-		if enemy and is_instance_valid(enemy):
-			enemy.queue_redraw()
-
-	# Проверяем завершение волны
-	if current_wave_enemies.is_empty() and current_wave < C.LEVELS[current_level].enemy_waves.size():
-		await get_tree().create_timer(1.0).timeout  # пауза 1 сек между волнами
-		_spawn_next_wave()
-
-## Callbacks
-func _on_enemy_died(enemy: Node2D) -> void:
-	if enemy in current_wave_enemies:
-		current_wave_enemies.erase(enemy)
-	if enemy in enemies:
-		enemies.erase(enemy)
-
-	print("📊 Enemies remaining: %d" % current_wave_enemies.size())
-
-	if current_wave_enemies.is_empty():
-		waves_complete += 1
-		print("✓ Wave %d complete!" % waves_complete)
-
+# ──────────────────────────────────────────────
+#region Колбеки
 func _on_player_died() -> void:
-	print("💀 GAME OVER!")
 	current_state = C.STATE.LOST
 	get_tree().paused = true
 
-func _on_level_complete() -> void:
-	print("🏆 LEVEL COMPLETE!")
-	print("   Time: %.1f sec" % level_timer)
-	current_state = C.STATE.WON
-	get_tree().paused = true
+func _on_enemy_died(enemy: Node2D) -> void:
+	enemies.erase(enemy)
+#endregion
 
-## Level Backgrounds
-func _draw_level1_bg() -> void:
-	# Level 1 - Zich Ruins (раньше казацкая крепость)
-	# Цвет: серый камень, дым, руины
+# ──────────────────────────────────────────────
+#region Відмалювання
+func _draw() -> void:
+	var cx := camera.global_position.x if camera else C.VIEWPORT_WIDTH / 2.0
+	var ox := cx - C.VIEWPORT_WIDTH / 2.0  # ліва межа камери у світових координатах
+	var oy := 0.0
 
-	# Небо - мрачное
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT * 0.6), Color(0.15, 0.15, 0.18))
+	_draw_background(ox, oy)
+	_draw_platforms()
+	_draw_hud(ox, oy)
 
-	# Дымка вверху
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, 200), Color(0.3, 0.25, 0.2, 0.3))
+	match current_state:
+		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "Натисни ESC щоб продовжити")
+		C.STATE.LOST:  _draw_overlay(ox, oy, "ЗАГИБЕЛЬ", Color(0.35, 0.0, 0.0, 0.65), "Натисни Enter щоб повторити")
+		C.STATE.WON:   _draw_overlay(ox, oy, "ПЕРЕМОГА", Color(0.0, 0.18, 0.0, 0.60), "Натисни Enter для наступного рівня")
 
-	# Земля - грязная, камень
-	draw_rect(Rect2(0, C.VIEWPORT_HEIGHT * 0.6, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT * 0.4), Color(0.18, 0.15, 0.12))
+func _draw_background(ox: float, _oy: float) -> void:
+	var vw := float(C.VIEWPORT_WIDTH)
+	var vh := float(C.VIEWPORT_HEIGHT)
 
-	# Руины (большие камни/стены)
-	_draw_ruin_block(Vector2(200, 650), 150, 200, Color(0.35, 0.32, 0.28))
-	_draw_ruin_block(Vector2(500, 700), 200, 150, Color(0.32, 0.28, 0.25))
-	_draw_ruin_block(Vector2(1400, 680), 180, 180, Color(0.38, 0.34, 0.30))
-	_draw_ruin_block(Vector2(1700, 750), 220, 120, Color(0.33, 0.30, 0.26))
-	_draw_ruin_block(Vector2(800, 820), 250, 80, Color(0.36, 0.32, 0.28))
+	# Небо — темний градієнт (Castlevania/Berserk атмосфера)
+	draw_rect(Rect2(ox, 0, vw, vh * 0.55), Color(0.03, 0.02, 0.08))
+	draw_rect(Rect2(ox, vh * 0.35, vw, vh * 0.40), Color(0.07, 0.03, 0.04))
 
-	# Трещины в земле
-	draw_line(Vector2(100, 750), Vector2(300, 850), Color(0.1, 0.1, 0.1), 2.0)
-	draw_line(Vector2(600, 800), Vector2(800, 900), Color(0.1, 0.1, 0.1), 2.0)
-	draw_line(Vector2(1200, 780), Vector2(1400, 900), Color(0.1, 0.1, 0.1), 2.0)
+	# Місяць
+	var moon_x := ox + vw * 0.80
+	draw_circle(Vector2(moon_x, 85), 48, Color(0.92, 0.88, 0.78, 0.18))
+	draw_circle(Vector2(moon_x, 85), 42, Color(0.95, 0.92, 0.82))
 
-func _draw_level2_bg() -> void:
-	# Level 2 - Villages (украинские деревни)
-	var sky_color = Color(0.2, 0.18, 0.25)  # Более фиолетовый оттенок
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), sky_color)
+	# Далекий силует руїн (паралакс 0.18)
+	var px := ox * 0.18
+	var ruin_color := Color(0.07, 0.04, 0.06)
+	for i in range(8):
+		var rx := px + i * 480.0 + fmod(float(i) * 137.0, 200.0)
+		var rh := 120.0 + fmod(float(i) * 53.0, 80.0)
+		draw_rect(Rect2(rx, float(C.GROUND_Y) - rh, 60, rh), ruin_color)
+		# Вікна
+		draw_rect(Rect2(rx + 10, float(C.GROUND_Y) - rh + 20, 12, 16), Color(0.20, 0.14, 0.08, 0.6))
+		draw_rect(Rect2(rx + 38, float(C.GROUND_Y) - rh + 20, 12, 16), Color(0.20, 0.14, 0.08, 0.6))
 
-	# Горизонт с деревьями (силуэты)
-	draw_line(Vector2(0, 650), Vector2(C.VIEWPORT_WIDTH, 650), Color(0.1, 0.1, 0.1), 3.0)
+	# Середній план — дерева/колони (паралакс 0.45)
+	var mx := ox * 0.45
+	var tree_c := Color(0.06, 0.04, 0.05)
+	for i in range(12):
+		var tx := mx + i * 320.0 + fmod(float(i) * 97.0, 160.0)
+		var th := 80.0 + fmod(float(i) * 41.0, 60.0)
+		draw_rect(Rect2(tx, float(C.GROUND_Y) - th, 18, th), tree_c)
+		draw_circle(Vector2(tx + 9, float(C.GROUND_Y) - th - 20), 28, tree_c)
 
-	# Рваные дома (силуэты) - горят
-	_draw_house_ruin(Vector2(300, 550), 100, 150, Color(0.4, 0.2, 0.1))
-	_draw_house_ruin(Vector2(800, 580), 120, 140, Color(0.38, 0.18, 0.08))
-	_draw_house_ruin(Vector2(1400, 560), 100, 160, Color(0.42, 0.22, 0.12))
+	# Туман/серпанок над землею
+	draw_rect(Rect2(ox, float(C.GROUND_Y) - 55, vw, 55), Color(0.12, 0.06, 0.08, 0.28))
+	draw_rect(Rect2(ox, float(C.GROUND_Y) - 30, vw, 30), Color(0.15, 0.08, 0.10, 0.18))
 
-func _draw_level3_bg() -> void:
-	# Level 3 - Mountains (горы, артиллерия)
-	var gradient_color = Color(0.25, 0.2, 0.3)  # Синий+фиолетовый горный цвет
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), gradient_color)
+func _draw_platforms() -> void:
+	for plat in current_platforms:
+		var is_ground := plat.size.y > 50  # земля vs платформа
 
-	# Горы (треугольники)
-	var mountain_pts = PackedVector2Array([
-		Vector2(0, 900),
-		Vector2(500, 400),
-		Vector2(1000, 900),
-	])
-	draw_colored_polygon(mountain_pts, Color(0.2, 0.15, 0.25))
+		if is_ground:
+			# Земля — темний камінь
+			draw_rect(plat, Color(0.14, 0.10, 0.08))
+			draw_rect(Rect2(plat.position.x, plat.position.y, plat.size.x, 6), Color(0.22, 0.16, 0.12))
+			# Текстура тріщин (псевдо)
+			var nx := int(plat.size.x / 80)
+			for i in range(nx):
+				var cx2 := plat.position.x + i * 80 + 30
+				draw_line(Vector2(cx2, plat.position.y + 8), Vector2(cx2 + 12, plat.position.y + 20), Color(0.10, 0.07, 0.05), 1.0)
+		else:
+			# Платформа — кам'яна плита
+			draw_rect(plat, Color(0.24, 0.18, 0.14))
+			# Верхній край (яскравіший)
+			draw_rect(Rect2(plat.position.x, plat.position.y, plat.size.x, 4), Color(0.36, 0.27, 0.20))
+			# Бічні тіні
+			draw_rect(Rect2(plat.position.x, plat.position.y, 4, plat.size.y), Color(0.18, 0.13, 0.10))
+			draw_rect(Rect2(plat.position.x + plat.size.x - 4, plat.position.y, 4, plat.size.y), Color(0.18, 0.13, 0.10))
 
-	var mountain_pts2 = PackedVector2Array([
-		Vector2(800, 900),
-		Vector2(1300, 350),
-		Vector2(1920, 900),
-	])
-	draw_colored_polygon(mountain_pts2, Color(0.22, 0.17, 0.27))
-
-func _draw_level4_bg() -> void:
-	# Level 4 - Citadel (замок, тронный зал)
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.08, 0.06, 0.12))
-
-	# Стены замка
-	draw_rect(Rect2(0, 200, C.VIEWPORT_WIDTH, 150), Color(0.25, 0.2, 0.2))
-	draw_rect(Rect2(0, 400, C.VIEWPORT_WIDTH, 50), Color(0.2, 0.15, 0.15))
-
-func _draw_ruin_block(pos: Vector2, w: float, h: float, col: Color) -> void:
-	# Рисует блок руин с тенью и трещинами
-	draw_rect(Rect2(pos.x - w/2, pos.y - h/2, w, h), col)
-
-	# Тень
-	draw_rect(Rect2(pos.x - w/2, pos.y + h/2, w, 20), Color(0, 0, 0, 0.3))
-
-	# Трещины
-	if randf() > 0.5:
-		draw_line(Vector2(pos.x - w/4, pos.y - h/2), Vector2(pos.x - w/4, pos.y + h/2), Color(0.1, 0.1, 0.1), 1.0)
-		draw_line(Vector2(pos.x + w/4, pos.y - h/2), Vector2(pos.x + w/4, pos.y + h/2), Color(0.1, 0.1, 0.1), 1.0)
-
-func _draw_house_ruin(pos: Vector2, w: float, h: float, col: Color) -> void:
-	# Рисует сгоревший дом
-	draw_rect(Rect2(pos.x - w/2, pos.y - h, w, h), col)
-
-	# Черная крыша (торчит)
-	var roof = PackedVector2Array([
-		Vector2(pos.x - w/2, pos.y - h),
-		Vector2(pos.x, pos.y - h - 40),
-		Vector2(pos.x + w/2, pos.y - h),
-	])
-	draw_colored_polygon(roof, Color(0.1, 0.1, 0.1))
-
-## HUD
-func _draw_hud() -> void:
+func _draw_hud(ox: float, oy: float) -> void:
 	if not player:
 		return
+	var font := ThemeDB.fallback_font
+	var pad  := 24.0
 
-	# Фон HUD (полоса вверху)
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, 60), Color(0.05, 0.05, 0.08, 0.8))
-	draw_line(Vector2(0, 60), Vector2(C.VIEWPORT_WIDTH, 60), Color(0.5, 0.4, 0.3), 2.0)
+	# === HP ПОЛОСКА ===
+	var hp_pct  := float(player.current_hp) / float(C.PLAYER_HP_MAX)
+	var bar_w   := 220.0
+	var bar_h   := 18.0
+	var bar_x   := ox + pad
+	var bar_y   := oy + pad
 
-	# HP (слева)
-	draw_string(ThemeDB.fallback_font, Vector2(20, 25), "HP: %d/%d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+	draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), Color(0.04, 0.03, 0.06))
+	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.18, 0.06, 0.06))
+	draw_rect(Rect2(bar_x, bar_y, bar_w * hp_pct, bar_h), Color(0.78, 0.14, 0.14))
+	draw_string(font, Vector2(bar_x + 4, bar_y + 13), "HP %d / %d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
 
-	# Level и Wave (в центре)
-	var level_text = "Level %d | Wave %d/%d" % [
-		current_level + 1,
-		waves_complete + 1,
-		C.LEVELS[current_level].enemy_waves.size()
-	]
-	draw_string(ThemeDB.fallback_font, Vector2(C.VIEWPORT_WIDTH/2 - 150, 25), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.8, 0.8, 0.8))
+	# === ШКАЛА ОДЕРЖИМОСТІ ===
+	var obs_max := float(C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS)
+	var obs_pct := player.obsession_fill / obs_max
+	var ob_y    := bar_y + bar_h + 8
+	var ob_w    := bar_w
 
-	# Время (справа)
-	var time_str = "Time: %.1fs" % level_timer
-	draw_string(ThemeDB.fallback_font, Vector2(C.VIEWPORT_WIDTH - 200, 25), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.7, 0.9, 0.7))
+	draw_rect(Rect2(bar_x - 2, ob_y - 2, ob_w + 4, 12), Color(0.04, 0.03, 0.06))
+	draw_rect(Rect2(bar_x, ob_y, ob_w, 10), Color(0.12, 0.06, 0.18))
+	draw_rect(Rect2(bar_x, ob_y, ob_w * obs_pct, 10), Color(0.65, 0.10, 1.0))
+	# Мітки рівнів одержимості
+	for i in range(1, C.PLAYER_OBSESSION_LEVELS):
+		var lx := bar_x + ob_w * float(i) / float(C.PLAYER_OBSESSION_LEVELS)
+		draw_rect(Rect2(lx - 1, ob_y, 2, 10), Color(0.04, 0.03, 0.06))
+	draw_string(font, Vector2(bar_x + 4, ob_y + 9), "Одержимість  Рівень %d / %d" % [player.obsession_level, C.PLAYER_OBSESSION_LEVELS], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.80, 0.60, 1.0))
 
-	# Obsession bar (внизу слева в HUD)
-	_draw_obsession_bar()
+	# === РІВЕНЬ ТА ЧАС ===
+	var mins := int(level_timer) / 60
+	var secs := int(level_timer) % 60
+	var time_str := "%02d:%02d" % [mins, secs]
+	draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) - 160, oy + 36), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.80, 0.78, 0.65))
+	draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) / 2.0 - 120, oy + 36), level_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.70, 0.60, 0.50))
 
-func _draw_obsession_bar() -> void:
-	if not player:
-		return
+	# === ПІДКАЗКИ (тільки рівень 1) ===
+	if current_level == 0 and level_timer < 12.0:
+		draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) / 2.0 - 180, oy + float(C.VIEWPORT_HEIGHT) - 50),
+			"A/D — рух   W — стрибок   Space — атака   R — блок   V — одержимість",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.75, 0.72, 0.60, 0.9))
 
-	var bar_x = 20
-	var bar_y = 40
-	var bar_width = 200
-	var bar_height = 10
+func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String) -> void:
+	var font := ThemeDB.fallback_font
+	var vw   := float(C.VIEWPORT_WIDTH)
+	var vh   := float(C.VIEWPORT_HEIGHT)
+	draw_rect(Rect2(ox, oy, vw, vh), bg)
 
-	# Фон полосы
-	draw_rect(Rect2(bar_x, bar_y, bar_width, bar_height), Color(0.1, 0.1, 0.1))
-
-	# Заполнение
-	var obsession_percent = player.obsession_fill / (C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS)
-	var fill_width = bar_width * min(obsession_percent, 1.0)
-
-	var obsession_color = Color.MAGENTA
-	if player.obsession_active:
-		obsession_color = Color(1.0, 0.5, 1.0)
-
-	draw_rect(Rect2(bar_x, bar_y, fill_width, bar_height), obsession_color)
-
-	# Граница
-	draw_rect(Rect2(bar_x, bar_y, bar_width, bar_height), Color(0.5, 0.3, 0.5), false, 2.0)
-
-	# Уровень одержимости
-	var level_text = "Obs: %d/3" % player.obsession_level
-	draw_string(ThemeDB.fallback_font, Vector2(bar_x + 210, bar_y), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.5, 1.0))
-
-func _draw_pause_screen() -> void:
-	# Полусерый оверлей
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0, 0, 0, 0.5))
-
-	# "PAUSE" текст в центре
-	var pause_text = "ПАУЗА"
-	var font = ThemeDB.fallback_font
-	var text_size = font.get_string_size(pause_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 40), pause_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Color.WHITE)
-
-	# Инструкция
-	var hint = "Нажми Escape для продолжения"
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 30), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.7, 0.7, 0.7))
-
-func _draw_lost_screen() -> void:
-	# Красный оверлей
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.8, 0.1, 0.1, 0.6))
-
-	# "GAME OVER" текст
-	var font = ThemeDB.fallback_font
-	var game_over_text = "ПОРАЖЕНИЕ"
-	var text_size = font.get_string_size(game_over_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), game_over_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color.RED)
-
-	# Статистика
-	var stats = "Уровень: %d | Волна: %d | Время: %.1f сек" % [
-		current_level + 1,
-		waves_complete,
-		level_timer
-	]
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 300, C.VIEWPORT_HEIGHT/2 + 20), stats, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
-
-	# Подсказка
-	var hint = "Нажми Enter для перезагрузки"
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 80), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.8, 0.8, 0.8))
-
-func _draw_won_screen() -> void:
-	# Зеленый оверлей
-	draw_rect(Rect2(0, 0, C.VIEWPORT_WIDTH, C.VIEWPORT_HEIGHT), Color(0.1, 0.6, 0.1, 0.6))
-
-	# "VICTORY" текст
-	var font = ThemeDB.fallback_font
-	var victory_text = "УРОВЕНЬ ПРОЙДЕН!"
-	var text_size = font.get_string_size(victory_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 50)
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - text_size.x/2, C.VIEWPORT_HEIGHT/2 - 60), victory_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 50, Color(0.2, 1.0, 0.2))
-
-	# Статистика
-	var stats = "Волна: %d / %d | Время: %.1f сек" % [
-		waves_complete,
-		C.LEVELS[current_level].enemy_waves.size(),
-		level_timer
-	]
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 300, C.VIEWPORT_HEIGHT/2 + 20), stats, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
-
-	# Подсказка
-	var hint = "Нажми Enter для следующего уровня"
-	draw_string(font, Vector2(C.VIEWPORT_WIDTH/2 - 250, C.VIEWPORT_HEIGHT/2 + 80), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.8, 1.0, 0.8))
-
-## Debug
-func _print_game_state() -> void:
-	print("=== GAME STATE ===")
-	print("Level: %d" % (current_level + 1))
-	print("Wave: %d / %d" % [waves_complete, C.LEVELS[current_level].enemy_waves.size()])
-	print("Enemies: %d" % current_wave_enemies.size())
-	if player:
-		print("Player: %s" % str(player.get_status()))
+	var tx := ox + vw / 2.0 - 160
+	var ty := oy + vh / 2.0
+	draw_string(font, Vector2(tx, ty - 20), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 52, Color.WHITE)
+	draw_string(font, Vector2(tx, ty + 36), hint,  HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.80, 0.78, 0.65))
+#endregion

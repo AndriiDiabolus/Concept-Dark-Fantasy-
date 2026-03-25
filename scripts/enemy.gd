@@ -1,272 +1,238 @@
-## enemy.gd — Базовый класс для всех врагов
-## Наследуется Pehota, Musketeer, Piker
+## enemy.gd — Базовий ворог (сайд-скроллер)
+## Патруль → Переслідування → Атака
 
 extends Node2D
 
-class_name Enemy
-
-## Статистика врага
 var enemy_type: String = "pehota"
-var current_hp: int
-var max_hp: int
-var damage: int
-var attack_speed: float
-var speed: float
+var enemy_data: Dictionary = {}
+var enemy_size: Vector2 = Vector2(38, 68)
+var target: Node2D = null
 
-## Поведение
-var target: Node2D  # игрок (Yaromir)
 var velocity: Vector2 = Vector2.ZERO
-var facing_right: bool = true
-var state: String = "idle"  # idle, chase, attack, hit, dead
+var is_on_ground: bool = false
+var is_alive: bool = true
+var facing_right: bool = false
 
-## Combat
+var current_hp: int = 0
 var attack_cooldown: float = 0.0
-var in_attack_range: bool = false
-var chase_range: float
-var attack_range: float
+var hit_flash: float = 0.0
+var telegraph_timer: float = 0.0
+var is_telegraphing: bool = false
 
-## Visual
-var hit_flash_time: float = 0.0
-var _frame: int = 0  # Frame counter for animation
+var patrol_dir: int = -1
+var patrol_walked: float = 0.0
+const PATROL_RANGE: float = 200.0
 
-## Signals
+var _ai_state: String = "patrol"
+var _frame: int = 0
+
 signal died(enemy)
-signal dealt_damage(damage)
 
-func _ready() -> void:
-	var config = C.ENEMY_TYPES.get(enemy_type, {})
-	if config.is_empty():
-		print("❌ Enemy type '%s' not found!" % enemy_type)
-		queue_free()
-		return
-
-	# Загружаем статистику
-	max_hp = config.get("hp", 30)
-	current_hp = max_hp
-	damage = config.get("damage", 5)
-	attack_speed = config.get("attack_speed", 1.0)
-	speed = config.get("speed", 100)
-	chase_range = config.get("chase_range", 150)
-	attack_range = config.get("attack_range", 40)
-
-	print("👹 %s spawned | HP: %d | DMG: %d" % [enemy_type.capitalize(), current_hp, damage])
-
-	# Добавляем в группу для поиска
+func setup(type: String, player: Node2D) -> void:
+	enemy_type = type
+	enemy_data = C.ENEMY_TYPES[type]
+	enemy_size = enemy_data["size"]
+	current_hp = enemy_data["hp"]
+	target = player
 	add_to_group("enemies")
-
-	# Визуализация
-	_setup_visuals()
+	set_process(true)
+	print("👹 %s | HP:%d DMG:%d" % [enemy_data["name"], current_hp, enemy_data["damage"]])
 
 func _process(delta: float) -> void:
-	if state == "dead":
+	if not is_alive:
 		return
-
-	# Обновляем таймеры
 	_update_timers(delta)
-
-	# Обновляем AI
+	_apply_gravity(delta)
 	_update_ai(delta)
-
-	# Обновляем анимацию
-	_update_animation()
-
-	# Increment frame counter
 	_frame += 1
-
-func _update_ai(delta: float) -> void:
-	if not is_instance_valid(target):
-		state = "idle"
-		velocity = Vector2.ZERO
-		return
-
-	var distance_to_target = global_position.distance_to(target.global_position)
-	in_attack_range = distance_to_target <= attack_range
-
-	match state:
-		"idle":
-			velocity = Vector2.ZERO
-			if distance_to_target <= chase_range:
-				state = "chase"
-
-		"chase":
-			_move_towards_target(delta)
-			if distance_to_target > chase_range * 1.5:
-				state = "idle"
-			elif in_attack_range:
-				state = "attack"
-
-		"attack":
-			velocity = Vector2.ZERO
-			if attack_cooldown <= 0:
-				_perform_attack()
-				attack_cooldown = attack_speed
-			if not in_attack_range:
-				state = "chase"
-
-		"hit":
-			# Пока в состоянии "попадания", просто стоим
-			pass
-
-	# Применяем движение
-	global_position += velocity * delta
-
-	# Проверяем направление
-	if velocity.x != 0:
-		facing_right = velocity.x > 0
-
-func _move_towards_target(delta: float) -> void:
-	var direction = (target.global_position - global_position).normalized()
-	velocity = direction * speed
-
-func _perform_attack() -> void:
-	if not is_instance_valid(target):
-		return
-
-	# Не атакуем мертвого игрока
-	if not target.is_alive:
-		return
-
-	print("⚔️ %s attacks!" % enemy_type.capitalize())
-
-	# Наносим урон игроку
-	if target.has_method("take_damage"):
-		target.take_damage(damage)
-		dealt_damage.emit(damage)
-
-	# Визуальный эффект (мигание)
-	hit_flash_time = C.ENEMY_HIT_FLASH
-
-func take_damage(amount: int) -> void:
-	if state == "dead":
-		return
-
-	current_hp -= amount
-	state = "hit"
-	hit_flash_time = C.ENEMY_HIT_FLASH
-
-	print("💥 %s takes %d damage! HP: %d/%d" % [
-		enemy_type.capitalize(), amount, current_hp, max_hp
-	])
-
-	if current_hp <= 0:
-		_on_died()
-
-func _on_died() -> void:
-	state = "dead"
-	print("☠️ %s defeated!" % enemy_type.capitalize())
-
-	# Эмитируем сигнал для игровой логики
-	died.emit(self)
-
-	# Удаляем врага из сцены
-	await get_tree().create_timer(0.5).timeout
-	queue_free()
-
-func _update_timers(delta: float) -> void:
-	if attack_cooldown > 0:
-		attack_cooldown -= delta
-	if hit_flash_time > 0:
-		hit_flash_time -= delta
-
-func _setup_visuals() -> void:
-	# Setup визуализации — всё рисуется через _draw()
-	print("   ✓ %s visual initialized" % enemy_type.capitalize())
-
-func _update_animation() -> void:
-	# Обновляем отрисовку
 	queue_redraw()
 
+#region Фізика
+func _apply_gravity(delta: float) -> void:
+	if not is_on_ground:
+		velocity.y += C.GRAVITY * delta
+		velocity.y = minf(velocity.y, C.TERMINAL_VELOCITY)
+
+	var main = get_parent()
+	if main and main.has_method("resolve_collision"):
+		var result = main.resolve_collision(global_position, enemy_size, velocity * delta)
+		global_position = result["pos"]
+		if result["on_ground"]:
+			velocity.y = 0.0
+		is_on_ground = result["on_ground"]
+	else:
+		global_position += velocity * delta
+#endregion
+
+#region AI
+func _update_ai(_delta: float) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if is_telegraphing:
+		velocity.x = 0.0
+		return
+
+	var dx     := target.global_position.x - global_position.x
+	var dist   := absf(dx)
+	var chase  := enemy_data["chase_range"]
+	var arange := enemy_data["attack_range"]
+
+	match _ai_state:
+		"patrol":
+			if dist < chase:
+				_ai_state = "chase"
+			else:
+				_do_patrol(_delta)
+		"chase":
+			if dist > chase * 1.4:
+				_ai_state = "patrol"
+				patrol_walked = 0.0
+			elif dist <= arange:
+				_ai_state = "attack"
+				velocity.x = 0.0
+			else:
+				_do_chase(dx)
+		"attack":
+			velocity.x = 0.0
+			if dist > arange * 1.3:
+				_ai_state = "chase"
+			elif attack_cooldown <= 0:
+				_start_telegraph()
+
+func _do_patrol(delta: float) -> void:
+	var spd := enemy_data["speed"] * 0.45
+	velocity.x = patrol_dir * spd
+	facing_right = patrol_dir > 0
+	patrol_walked += spd * delta
+	if patrol_walked >= PATROL_RANGE:
+		patrol_dir *= -1
+		patrol_walked = 0.0
+
+func _do_chase(dx: float) -> void:
+	facing_right = dx > 0
+	velocity.x = sign(dx) * enemy_data["speed"]
+
+func _start_telegraph() -> void:
+	is_telegraphing = true
+	telegraph_timer = 1.0 if enemy_type == "piker" else 0.6
+	attack_cooldown = enemy_data["attack_cooldown"]
+
+func _do_attack() -> void:
+	if target == null or not is_instance_valid(target) or not target.is_alive:
+		return
+	var dy := absf(target.global_position.y - global_position.y)
+	if enemy_type == "musketeer" and dy > 130:
+		return
+	target.take_damage(enemy_data["damage"])
+#endregion
+
+#region Шкода
+func take_damage(dmg: int) -> void:
+	if not is_alive:
+		return
+	current_hp -= dmg
+	hit_flash = 0.18
+	if current_hp <= 0:
+		_die()
+
+func _die() -> void:
+	is_alive = false
+	_ai_state = "dead"
+	velocity = Vector2.ZERO
+	remove_from_group("enemies")
+	died.emit(self)
+	get_tree().create_timer(0.9).timeout.connect(queue_free)
+#endregion
+
+#region Таймери
+func _update_timers(delta: float) -> void:
+	if attack_cooldown > 0:   attack_cooldown -= delta
+	if hit_flash > 0:         hit_flash -= delta
+	if is_telegraphing:
+		telegraph_timer -= delta
+		if telegraph_timer <= 0:
+			is_telegraphing = false
+			_do_attack()
+#endregion
+
+#region Відмалювання
 func _draw() -> void:
-	# Цвет зависит от типа врага и состояния
-	var base_color: Color
-	var armor_color: Color
-	var alpha = 1.0
+	var hw  := enemy_size.x * 0.5
+	var hh  := enemy_size.y * 0.5
+	var dir := 1.0 if facing_right else -1.0
 
-	if state == "dead":
-		# При смерти - быстрое исчезновение
-		var death_time = 0.5  # time before queue_free
-		alpha = max(0.0, 1.0 - (hit_flash_time / death_time))
-		base_color = Color(0.5, 0.5, 0.5, alpha)
-		armor_color = Color(0.2, 0.2, 0.2, alpha)
-	elif state == "hit":
-		# При попадании - красная вспышка
-		var flash_intensity = 1.0 - (hit_flash_time / C.ENEMY_HIT_FLASH)
-		base_color = Color.RED.lerp(Color(0.8, 0.7, 0.6), flash_intensity)
-		armor_color = Color.RED.lerp(Color(0.4, 0.3, 0.2), flash_intensity)
-	else:
-		# Выбираем цвет по типу врага
-		match enemy_type:
-			"pehota":
-				base_color = Color(0.8, 0.7, 0.6)  # Светлая кожа
-				armor_color = Color(0.4, 0.3, 0.2)  # Коричневые доспехи
-			"musketeer":
-				base_color = Color(0.75, 0.65, 0.55)
-				armor_color = Color(0.2, 0.2, 0.3)  # Синие доспехи (мушкетер)
-			"piker":
-				base_color = Color(0.7, 0.6, 0.5)
-				armor_color = Color(0.3, 0.25, 0.2)  # Более темные доспехи (тяжелая броня)
-			_:
-				base_color = Color.YELLOW
-				armor_color = Color.YELLOW
+	# Смерть
+	if not is_alive:
+		draw_rect(Rect2(-hw, -6, hw * 2, 14), Color(0.28, 0.18, 0.12, 0.5))
+		draw_circle(Vector2(dir * hw * 0.6, 4), 9, Color(0.26, 0.16, 0.10, 0.5))
+		return
 
-	base_color.a = alpha
-	armor_color.a = alpha
-
-	# Рисуем тело врага (похоже на героя но проще)
-	# Торс
-	draw_rect(Rect2(-14, -8, 28, 22), armor_color)
-
-	# Голова
-	draw_circle(Vector2(0, -18), 7, base_color)
-
-	# Левая рука
-	draw_rect(Rect2(-18, -4, 6, 16), base_color)
-
-	# Правая рука (у мушкетера меньше, у пайка больше)
-	if enemy_type == "piker":
-		# Пайка - копье
-		var spear_color = Color(0.6, 0.5, 0.3)
-		spear_color.a = alpha
-		draw_line(Vector2(16, -6), Vector2(40, -10), spear_color, 3.0)
-		var spear_tip = Color(0.4, 0.3, 0.2)
-		spear_tip.a = alpha
-		draw_circle(Vector2(40, -10), 3, spear_tip)
-	else:
-		draw_rect(Rect2(12, -4, 6, 16), base_color)
-
-	# Ноги
-	var leg_color = Color(0.5, 0.4, 0.3)
-	leg_color.a = alpha
-	draw_rect(Rect2(-9, 14, 5, 14), leg_color)
-	draw_rect(Rect2(4, 14, 5, 14), leg_color)
-
-	# HP полоса
-	var hp_width = 40.0 * (float(current_hp) / float(max_hp))
-	draw_rect(Rect2(-20, -28, 40, 2), Color(0.2, 0.2, 0.2))
-	draw_rect(Rect2(-20, -28, hp_width, 2), Color.GREEN)
-
-	# Визуальная подсказка типа врага (символ над головой)
+	# Кольори
+	var body_c: Color
+	var cloth_c: Color
 	match enemy_type:
 		"pehota":
-			draw_circle(Vector2(0, -30), 2, Color.YELLOW)  # Точка = пехота
+			body_c = Color(0.55, 0.20, 0.16); cloth_c = Color(0.42, 0.15, 0.12)
 		"musketeer":
-			# Две точки = мушкетер
-			draw_circle(Vector2(-3, -30), 2, Color(0.2, 0.5, 1.0))
-			draw_circle(Vector2(3, -30), 2, Color(0.2, 0.5, 1.0))
+			body_c = Color(0.20, 0.28, 0.55); cloth_c = Color(0.16, 0.22, 0.42)
 		"piker":
-			# Треугольник = пайка
-			var tri = PackedVector2Array([
-				Vector2(0, -32),
-				Vector2(-3, -28),
-				Vector2(3, -28),
-			])
-			draw_colored_polygon(tri, Color(1.0, 0.5, 0.2))
+			body_c = Color(0.20, 0.38, 0.20); cloth_c = Color(0.15, 0.30, 0.15)
+		_:
+			body_c = Color(0.45, 0.28, 0.18); cloth_c = Color(0.36, 0.22, 0.14)
 
-func get_status() -> Dictionary:
-	return {
-		"type": enemy_type,
-		"hp": current_hp,
-		"max_hp": max_hp,
-		"state": state,
-		"position": global_position
-	}
+	if hit_flash > 0:
+		body_c = Color(1.0, 0.28, 0.28); cloth_c = Color(1.0, 0.38, 0.38)
+
+	# Телеграфія
+	if is_telegraphing:
+		var t := sin(_frame * 0.5) * 0.5 + 0.5
+		draw_circle(Vector2.ZERO, hh * 0.85, Color(1.0, 0.12, 0.12, t * 0.35))
+
+	var leg_a := sin(_frame * 0.30) * 7.0 if (absf(velocity.x) > 5 and is_on_ground) else 0.0
+
+	# Ноги
+	draw_rect(Rect2(-hw * 0.50, hh * 0.28 + leg_a, hw * 0.46, hh * 0.52), body_c)
+	draw_rect(Rect2(0,           hh * 0.28 - leg_a, hw * 0.46, hh * 0.52), body_c)
+
+	# Тулуб
+	draw_rect(Rect2(-hw * 0.72, -hh * 0.50, hw * 1.44, hh * 0.82), cloth_c)
+
+	# Голова
+	draw_circle(Vector2(0, -hh * 0.72), hh * 0.30, Color(0.76, 0.58, 0.40))
+	draw_circle(Vector2(0, -hh * 0.86), hh * 0.26, body_c)  # шолом
+
+	# Очі
+	draw_circle(Vector2(3.5 * dir, -hh * 0.76), 2.0, Color(0.06, 0.02, 0.02))
+
+	# Зброя
+	match enemy_type:
+		"pehota":
+			draw_line(
+				Vector2(dir * hw * 0.7, -hh * 0.28),
+				Vector2(dir * (hw * 0.7 + 36), -hh * 0.54),
+				Color(0.75, 0.72, 0.64), 4.0
+			)
+		"musketeer":
+			draw_line(
+				Vector2(dir * hw * 0.5, -hh * 0.18),
+				Vector2(dir * (hw * 0.5 + 65), -hh * 0.34),
+				Color(0.42, 0.32, 0.22), 5.0
+			)
+			draw_line(
+				Vector2(dir * hw * 0.5, -hh * 0.18),
+				Vector2(dir * (hw * 0.5 + 65), -hh * 0.34),
+				Color(0.68, 0.66, 0.58), 2.0
+			)
+		"piker":
+			draw_line(
+				Vector2(-dir * hw * 0.4, -hh),
+				Vector2(dir * (hw + 90), -hh * 0.08),
+				Color(0.52, 0.42, 0.28), 4.0
+			)
+			draw_circle(Vector2(dir * (hw + 90), -hh * 0.08), 5.0, Color(0.72, 0.70, 0.60))
+
+	# HP полоска
+	var hp_pct := float(current_hp) / float(enemy_data["hp"])
+	draw_rect(Rect2(-hw, -hh - 12, hw * 2, 4),           Color(0.08, 0.08, 0.08))
+	draw_rect(Rect2(-hw, -hh - 12, hw * 2 * hp_pct, 4),  Color(0.85, 0.15, 0.15))
+#endregion

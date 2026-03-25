@@ -1,415 +1,287 @@
-## player.gd — Yaromir (Игрок)
-## Полный контроллер персонажа: движение, атака, блок, уклон, одержимость
+## player.gd — Ярмір (Yaromir)
+## Платформер: гравітація, стрибки, бій
 
 extends Node2D
 
-## Позиция и движение
+#region Фізика
 var velocity: Vector2 = Vector2.ZERO
-var is_moving: bool = false
-var pressed_keys: Dictionary = {}  # Отслеживаем нажатые клавиши
+var is_on_ground: bool = false
+#endregion
 
-## Health & Status
+#region Стан
 var current_hp: int = C.PLAYER_HP_MAX
 var is_alive: bool = true
 var is_blocking: bool = false
-var is_recovering: bool = false  # после одержимости (на коленях)
-
-## Combat
-var attack_combo: int = 0  # текущий удар в комбо (0, 1, 2)
-var attack_cooldown: float = 0.0
-var last_attack_time: float = 0.0
-
-## Obsession (Одержимость)
-var obsession_level: int = 0  # 0-3 уровня
-var obsession_active: bool = false
-var obsession_time_remaining: float = 0.0
-var obsession_cooldown: float = 0.0
-var obsession_fill: float = 0.0  # 0-300 points
-
-## Dodge (Уклон)
-var last_dodge_time: float = 0.0
-
-## Animation & Visual
+var is_recovering: bool = false
 var facing_right: bool = true
-var degrade_stage: int = 0  # 0, 1, 2, 3 (визуальная деградация)
-var _frame: int = 0  # Счётчик кадров для анимаций
+var is_moving: bool = false
+#endregion
 
-## Signals
-signal hp_changed(new_hp)
-signal obsession_changed(level, fill)
-signal obsession_activated
+#region Бій
+var attack_combo: int = 0
+var attack_cooldown: float = 0.0
+var attack_timer: float = 0.0
+#endregion
+
+#region Одержимість
+var obsession_level: int = 0
+var obsession_active: bool = false
+var obsession_time: float = 0.0
+var obsession_cooldown: float = 0.0
+var obsession_fill: float = 0.0
+var degrade_stage: int = 0
+#endregion
+
+#region Ввід
+var pressed_keys: Dictionary = {}
+#endregion
+
+#region Анімація
+var _frame: int = 0
+#endregion
+
 signal player_died
-signal attack_hit(damage)
+signal hp_changed(hp)
 
 func _ready() -> void:
-	print("🗡️ Yaromir READY at position: %v" % global_position)
 	set_process(true)
-	_setup_visuals()
-	print("🗡️ Yaromir initialized | HP: %d | Speed: %d px/s" % [current_hp, C.PLAYER_SPEED])
+	print("🗡️ Yaromir ready | HP:%d" % current_hp)
 
 func _process(delta: float) -> void:
 	if not is_alive:
 		return
-
-	# Проверяем input здесь напрямую
-	_handle_input()
-
-	# Обновляем таймеры
 	_update_timers(delta)
-
-	# Обновляем состояния
+	_handle_input()
+	_apply_gravity(delta)
+	_apply_movement(delta)
 	_update_obsession(delta)
-	_update_movement(delta)
-	_update_animation()
-
-	# Счётчик кадров для анимаций
+	if current_hp <= 0 and is_alive:
+		is_alive = false
+		player_died.emit()
 	_frame += 1
-
-	# Проверяем смерть
-	if current_hp <= 0:
-		_on_died()
-
-	# КРИТИЧНО: перерисовываем каждый кадр
 	queue_redraw()
 
+#region Ввід
 func _handle_input() -> void:
-	is_blocking = pressed_keys.has(KEY_R)
-
-#region MOVEMENT
-func _update_movement(delta: float) -> void:
-	var input_dir = Vector2.ZERO
-
-	if pressed_keys.has(KEY_W):
-		input_dir.y -= 1
-	if pressed_keys.has(KEY_S):
-		input_dir.y += 1
-	if pressed_keys.has(KEY_A):
-		input_dir.x -= 1
-		facing_right = false
-	if pressed_keys.has(KEY_D):
-		input_dir.x += 1
-		facing_right = true
-
-	input_dir = input_dir.normalized()
-	is_moving = input_dir.length() > 0
-
-	# Применяем скорость (снижается на 25% во время блока)
-	var current_speed = C.PLAYER_SPEED
-	if is_blocking:
-		current_speed *= 0.75
-
-	# Движение
-	velocity = input_dir * current_speed
-	position += velocity * delta
-
-	# Ограничиваем позицию в пределах экрана (примерно)
-	position.x = clamp(position.x, 50, C.VIEWPORT_WIDTH - 50)
-	position.y = clamp(position.y, 50, C.VIEWPORT_HEIGHT - 50)
-	queue_redraw()  # Принудительно перерисовываем
-
+	is_blocking = pressed_keys.has(KEY_R) and is_on_ground and not obsession_active
 #endregion
 
-#region ATTACK
-func _on_attack_input() -> void:
-	if is_blocking or is_recovering or obsession_cooldown > 0:
-		return
+#region Фізика та рух
+func _apply_gravity(delta: float) -> void:
+	if not is_on_ground:
+		velocity.y += C.GRAVITY * delta
+		velocity.y = minf(velocity.y, C.TERMINAL_VELOCITY)
 
-	# Проверяем cooldown
-	if attack_cooldown > 0:
-		return
+func _apply_movement(delta: float) -> void:
+	var h := 0
+	if pressed_keys.has(KEY_D): h += 1
+	if pressed_keys.has(KEY_A): h -= 1
 
-	# Увеличиваем комбо
+	if h != 0 and not is_blocking:
+		var spd = C.PLAYER_SPEED * (1.4 if obsession_active else 1.0)
+		velocity.x = h * spd
+		facing_right = h > 0
+		is_moving = true
+	else:
+		velocity.x *= 0.55
+		is_moving = absf(velocity.x) > 12.0
+
+	var main = get_parent()
+	if main and main.has_method("resolve_collision"):
+		var result = main.resolve_collision(global_position, C.PLAYER_SIZE, velocity * delta)
+		global_position = result["pos"]
+		if result["on_ground"]:
+			velocity.y = 0.0
+		is_on_ground = result["on_ground"]
+	else:
+		global_position += velocity * delta
+
+func do_jump() -> void:
+	if is_on_ground and not is_blocking and not is_recovering:
+		velocity.y = C.JUMP_FORCE
+		is_on_ground = false
+#endregion
+
+#region Бій
+func do_attack() -> void:
+	if attack_cooldown > 0 or is_blocking or is_recovering:
+		return
 	attack_combo = (attack_combo + 1) % 3
+	var dmg: int = C.PLAYER_ATTACK_DAMAGE[attack_combo]
+	if obsession_active:
+		dmg *= 2
+	attack_timer = C.PLAYER_ATTACK_SPEED[attack_combo]
+	attack_cooldown = C.PLAYER_ATTACK_SPEED[attack_combo]
 
-	# Наносим урон
-	var damage = C.PLAYER_ATTACK_DAMAGE[attack_combo]
-	var attack_duration = C.PLAYER_ATTACK_SPEED[attack_combo]
+	var dir := 1 if facing_right else -1
+	var hr := Rect2(
+		global_position.x + dir * 5.0,
+		global_position.y - C.PLAYER_SIZE.y * 0.5,
+		float(dir) * C.PLAYER_ATTACK_RANGE,
+		C.PLAYER_SIZE.y
+	)
+	if hr.size.x < 0:
+		hr.position.x += hr.size.x
+		hr.size.x = -hr.size.x
 
-	print("⚔️ Attack #%d | Damage: %d" % [attack_combo + 1, damage])
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(e) or not e.is_alive:
+			continue
+		var er := Rect2(e.global_position - e.enemy_size * 0.5, e.enemy_size)
+		if hr.intersects(er):
+			e.take_damage(dmg)
 
-	# Наносим урон врагам в радиусе атаки
-	var attack_radius = 60.0  # пиксели
-	var hit_count = 0
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if enemy and global_position.distance_to(enemy.global_position) <= attack_radius:
-			if enemy.has_method("take_damage"):
-				enemy.take_damage(damage)
-				hit_count += 1
+	obsession_fill = minf(
+		obsession_fill + C.PLAYER_OBSESSION_FILL_PER_ATTACK,
+		C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS
+	)
+	_sync_obsession_level()
 
-	if hit_count > 0:
-		print("💥 Hit %d enemies!" % hit_count)
-		attack_hit.emit(damage)
+func do_obsession() -> void:
+	if obsession_level < C.PLAYER_OBSESSION_LEVELS or obsession_cooldown > 0:
+		return
+	obsession_active = true
+	obsession_time = C.PLAYER_OBSESSION_DURATION
+	degrade_stage = mini(degrade_stage + 1, 3)
+	print("💜 OBSESSION активована! Стадія деградації: %d" % degrade_stage)
 
-	# Заполняем одержимость
-	if obsession_level < C.PLAYER_OBSESSION_LEVELS:
-		obsession_fill += C.PLAYER_OBSESSION_FILL_PER_ATTACK
-		_update_obsession_bar()
-
-	# Визуальный эффект
-	_play_attack_animation(attack_combo, attack_duration)
-
-	# Cooldown между ударами
-	attack_cooldown = attack_duration
-	last_attack_time = 0.0
-
+func take_damage(dmg: int) -> void:
+	if not is_alive or is_recovering:
+		return
+	if randf() < C.PLAYER_DODGE_CHANCE:
+		print("✨ Ухилення!")
+		return
+	var actual := int(dmg * C.PLAYER_BLOCK_DAMAGE_REDUCTION) if is_blocking else dmg
+	current_hp -= actual
+	obsession_fill = minf(
+		obsession_fill + actual * C.PLAYER_OBSESSION_FILL_PER_DAMAGE,
+		C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS
+	)
+	_sync_obsession_level()
+	hp_changed.emit(current_hp)
 #endregion
 
-#region OBSESSION
-func _try_activate_obsession() -> void:
-	if obsession_level < C.PLAYER_OBSESSION_LEVELS:
-		print("⚠️ Obsession not full! Level: %d/3" % obsession_level)
-		return
-
-	if obsession_cooldown > 0:
-		print("⏳ Obsession on cooldown: %.1f sec" % obsession_cooldown)
-		return
-
-	# Активируем
-	obsession_active = true
-	obsession_time_remaining = C.PLAYER_OBSESSION_DURATION
-	obsession_level = 0  # сброс после использования
-	obsession_fill = 0.0
-
-	print("💜 OBSESSION ACTIVATED! 20 sec of power!")
-	obsession_activated.emit()
+#region Одержимість
+func _sync_obsession_level() -> void:
+	obsession_level = mini(
+		int(obsession_fill / C.PLAYER_OBSESSION_LEVEL_THRESHOLD),
+		C.PLAYER_OBSESSION_LEVELS
+	)
 
 func _update_obsession(delta: float) -> void:
 	if not obsession_active:
 		return
-
-	obsession_time_remaining -= delta
-
-	if obsession_time_remaining <= 0:
-		_end_obsession()
-
-func _end_obsession() -> void:
-	obsession_active = false
-	is_recovering = true
-	obsession_time_remaining = 0.0
-	obsession_cooldown = C.PLAYER_OBSESSION_COOLDOWN
-
-	print("🔄 Recovery: 2 sec on knees | Cooldown: 2 min")
-
-	# Запускаем 2-сек уязвимость (асинхронно)
-	_recovery_timer()
-
-func _update_obsession_bar() -> void:
-	# Проверяем можем ли перейти на следующий уровень
-	var points_per_level = C.PLAYER_OBSESSION_LEVEL_THRESHOLD
-	var next_level = int(obsession_fill / points_per_level)
-
-	if next_level > obsession_level:
-		obsession_level = next_level
-		print("📈 Obsession Level: %d/3" % obsession_level)
-		obsession_changed.emit(obsession_level, int(obsession_fill))
-
-		# Визуальная деградация
-		_update_degrade_stage()
-
-func _update_degrade_stage() -> void:
-	match obsession_level:
-		0:
-			degrade_stage = 0  # normal
-		1:
-			degrade_stage = 1  # левая рука фиолетовая
-		2:
-			degrade_stage = 2  # глаза светятся + рога
-		3:
-			degrade_stage = 3  # полная демоническая форма
-
+	obsession_time -= delta
+	if obsession_time <= 0.0:
+		obsession_active = false
+		obsession_fill = 0.0
+		obsession_level = 0
+		is_recovering = true
+		obsession_cooldown = C.PLAYER_OBSESSION_COOLDOWN
+		get_tree().create_timer(C.PLAYER_OBSESSION_RECOVERY).timeout.connect(
+			func(): is_recovering = false
+		)
 #endregion
 
-#region DAMAGE
-func take_damage(damage: int) -> void:
-	if not is_alive or is_recovering:
-		return
-
-	var actual_damage = damage
-	var dodge_hit = _check_dodge()
-
-	if is_blocking:
-		actual_damage = int(damage * C.PLAYER_BLOCK_DAMAGE_REDUCTION)
-		print("🛡️ Blocked! Damage reduced: %d → %d" % [damage, actual_damage])
-	elif dodge_hit:
-		actual_damage = 0
-		print("✨ Dodged! 0 damage")
-	else:
-		print("💥 Hit! Damage: %d" % actual_damage)
-
-	current_hp -= actual_damage
-
-	# Заполняем одержимость от урона
-	if actual_damage > 0 and obsession_level < C.PLAYER_OBSESSION_LEVELS:
-		obsession_fill += damage * C.PLAYER_OBSESSION_FILL_PER_DAMAGE
-		_update_obsession_bar()
-
-	hp_changed.emit(current_hp)
-	print("❤️ HP: %d / %d" % [current_hp, C.PLAYER_HP_MAX])
-
-	# Проверяем смерть сразу
-	if current_hp <= 0:
-		_on_died()
-
-func _check_dodge() -> bool:
-	# Пассивный уклон с 5% шансом
-	if randf() < C.PLAYER_DODGE_CHANCE:
-		last_dodge_time = 0.0
-		return true
-	return false
-
-#endregion
-
-#region ASYNC HELPERS
-func _recovery_timer() -> void:
-	await get_tree().create_timer(C.PLAYER_OBSESSION_RECOVERY).timeout
-	is_recovering = false
-
-#endregion
-
-#region TIMERS
+#region Таймери
 func _update_timers(delta: float) -> void:
-	if attack_cooldown > 0:
-		attack_cooldown -= delta
-	if obsession_cooldown > 0:
-		obsession_cooldown -= delta
-	if last_attack_time >= 0:
-		last_attack_time += delta
-	if last_dodge_time >= 0:
-		last_dodge_time += delta
-
+	if attack_cooldown > 0: attack_cooldown -= delta
+	if attack_timer > 0:    attack_timer    -= delta
+	if obsession_cooldown > 0: obsession_cooldown -= delta
 #endregion
 
-#region VISUAL & ANIMATION
-
-func _setup_visuals() -> void:
-	# Setup визуализации — всё рисуется через _draw()
-	print("✓ Player visual initialized")
-
-func _update_animation() -> void:
-	# Обновляем отрисовку
-	queue_redraw()
-
-func _draw() -> void:
-	# Определяем цвет героя в зависимости от состояния
-	var color = Color(0.8, 0.6, 0.4)  # Кожа
-	var armor_color = Color(0.3, 0.2, 0.1)  # Доспехи (коричневые)
-	var alpha = 1.0
-
-	if obsession_active:
-		color = Color(1.0, 0.0, 1.0)  # Фиолетовый при одержимости
-		armor_color = Color(1.0, 0.2, 1.0)
-
-	# При уклоне - полупрозрачность
-	if last_dodge_time < 0.15:
-		alpha = 0.5 + sin(last_dodge_time * 10.0) * 0.3  # Мерцание
-
-	# Применяем альфа-канал
-	color.a = alpha
-	armor_color.a = alpha
-
-	# Базовая поза
-	var leg_offset_y = 0.0
-	var head_offset = 0.0
-
-	# Анимация ног при ходьбе
-	if is_moving and _frame > 0:
-		leg_offset_y = sin(_frame * 0.3) * 3.0
-		head_offset = abs(cos(_frame * 0.3)) * 2.0
-
-	# Рисуем тело (торс)
-	draw_rect(Rect2(-16, -16, 32, 28), armor_color)
-
-	# Рисуем голову
-	draw_circle(Vector2(0, -26 - head_offset), 8, color)
-
-	# Глаза (если не одержимость)
-	if not obsession_active:
-		draw_circle(Vector2(-3, -28 - head_offset), 2, Color.BLACK)
-		draw_circle(Vector2(3, -28 - head_offset), 2, Color.BLACK)
-	else:
-		# Горящие глаза при одержимости
-		draw_circle(Vector2(-3, -28 - head_offset), 2, Color.YELLOW)
-		draw_circle(Vector2(3, -28 - head_offset), 2, Color.YELLOW)
-
-	# Левая рука (с оружием - сабля)
-	draw_rect(Rect2(-22, -8, 8, 20), color)
-
-	# Сабля в руке
-	var sword_glow = Color(1.0, 0.8, 0.3)  # Золотой блеск
-	if obsession_active:
-		sword_glow = Color(1.0, 0.0, 1.0)  # Фиолетовый при одержимости
-
-	# Клинок сабли (линия с шириной)
-	var sword_width = 4.0
-	if attack_cooldown > 0:  # Во время атаки - больше света
-		sword_width = 6.0 + sin(_frame * 0.5) * 2.0
-
-	draw_line(Vector2(-20, -8), Vector2(-30, -20), sword_glow, sword_width)
-
-	if obsession_active:
-		# Дополнительный гляв при одержимости
-		draw_line(Vector2(-20, -8), Vector2(-30, -20), Color(1.0, 0.5, 1.0, 0.5), 10.0)
-
-	# Правая рука (защита если блок)
-	if is_blocking:
-		# Щит
-		draw_circle(Vector2(18, -8), 12, Color.BLUE)
-		draw_circle(Vector2(18, -8), 10, Color(0.2, 0.3, 0.8))
-		# Символ на щите
-		draw_circle(Vector2(18, -8), 4, Color.YELLOW)
-	else:
-		draw_rect(Rect2(14, -8, 8, 20), color)
-
-	# Ноги с анимацией
-	var left_leg_y = 12 + leg_offset_y
-	var right_leg_y = 12 - leg_offset_y
-
-	draw_rect(Rect2(-10, left_leg_y, 6, 18), Color(0.6, 0.4, 0.2))  # Левая нога (тёмнее)
-	draw_rect(Rect2(4, right_leg_y, 6, 18), Color(0.6, 0.4, 0.2))  # Правая нога
-
-	# HP полоса сверху
-	var hp_percent = float(current_hp) / float(C.PLAYER_HP_MAX)
-	draw_rect(Rect2(-24, -40, 48 * hp_percent, 3), Color.GREEN)
-	draw_rect(Rect2(-24, -40, 48, 3), Color(0.2, 0.2, 0.2))
-
-	# При блоке - подсветка
-	if is_blocking:
-		draw_rect(Rect2(-28, -35, 56, 65), Color(0, 0, 1, 0.1))
-
-	# При одержимости - пульсирующая аура
-	if obsession_active:
-		var aura_pulse = sin(_frame * 0.15) * 0.3 + 0.5
-		draw_circle(Vector2(0, 0), 50, Color(1.0, 0.0, 1.0, aura_pulse * 0.3))
-		draw_circle(Vector2(0, 0), 60, Color(1.0, 0.5, 1.0, aura_pulse * 0.15))
-
-	# При восстановлении после одержимости - сидит на коленях
-	if is_recovering:
-		# Измененная поза
-		draw_rect(Rect2(-14, -10, 28, 20), armor_color)  # торс более низко
-		draw_circle(Vector2(0, -20), 8, color)  # голова выше
-
-func _play_attack_animation(combo_idx: int, duration: float) -> void:
-	# TODO: воспроизводим анимацию атаки
-	# На данный момент просто логируем
-	pass
-
-#endregion
-
-#region STATUS
-func _on_died() -> void:
-	is_alive = false
-	print("💀 Yaromir has fallen!")
-	player_died.emit()
-
+#region Статус
 func get_status() -> Dictionary:
 	return {
 		"hp": current_hp,
+		"obsession_fill": obsession_fill,
 		"obsession_level": obsession_level,
-		"obsession_fill": int(obsession_fill),
 		"is_blocking": is_blocking,
-		"is_recovering": is_recovering,
+		"is_alive": is_alive,
 		"degrade_stage": degrade_stage,
-		"facing_right": facing_right
 	}
+#endregion
 
+#region Відмалювання
+func _draw() -> void:
+	if not is_alive:
+		return
+
+	var dir := 1.0 if facing_right else -1.0
+
+	# Кольори
+	var skin  := Color(0.82, 0.65, 0.46)
+	var armor := Color(0.20, 0.16, 0.10)
+	var cloth := Color(0.40, 0.30, 0.18)
+	var sword := Color(0.80, 0.78, 0.68)
+
+	if obsession_active:
+		skin  = Color(0.72, 0.32, 0.92)
+		armor = Color(0.32, 0.08, 0.52)
+		sword = Color(0.72, 0.20, 1.0)
+
+	var alpha := 0.4 if (is_recovering and _frame % 8 < 4) else 1.0
+	skin.a = alpha; armor.a = alpha; cloth.a = alpha
+
+	var leg_a := sin(_frame * 0.35) * 9.0 if (is_moving and is_on_ground) else 0.0
+	var bob   := absf(sin(_frame * 0.35)) * 1.5 if (is_moving and is_on_ground) else 0.0
+
+	# Ноги
+	draw_rect(Rect2(-10, 14 + leg_a * 0.5, 9, 22), armor)
+	draw_rect(Rect2(1,   14 - leg_a * 0.5, 9, 22), armor)
+	# Чоботи
+	draw_rect(Rect2(-11, 30 + leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
+	draw_rect(Rect2(0,   30 - leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
+
+	# Тулуб
+	draw_rect(Rect2(-13, -14, 26, 30), armor)
+	draw_rect(Rect2(-11, -12, 22, 24), cloth)
+	# Пояс
+	draw_rect(Rect2(-13, 13, 26, 5), Color(0.24, 0.17, 0.07, alpha))
+
+	# Голова
+	draw_circle(Vector2(0, -28 - bob), 12, skin)
+	# Вуса (козацькі)
+	draw_rect(Rect2(-6, -26 - bob, 12, 3), Color(0.18, 0.09, 0.04, alpha))
+	# Очі
+	var eye_c := Color(0.55, 0.10, 1.0) if obsession_active else Color(0.08, 0.04, 0.02, alpha)
+	draw_circle(Vector2(5.0 * dir, -30 - bob), 2.5, eye_c)
+	# Шапка козацька
+	draw_rect(Rect2(-10, -44 - bob, 20, 14), Color(0.08, 0.06, 0.04, alpha))
+	draw_rect(Rect2(-8,  -46 - bob, 16,  5), Color(0.52, 0.10, 0.10, alpha))
+
+	# Рука + зброя
+	draw_rect(Rect2(dir * 10 - 5, -10, 10, 18), skin)
+	if attack_timer > 0:
+		var ext := C.PLAYER_ATTACK_RANGE * 0.85
+		draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + ext), -28), sword, 5.0)
+		if obsession_active:
+			draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + ext), -28), Color(0.8, 0.3, 1.0, 0.55), 11.0)
+	else:
+		draw_line(Vector2(dir * 14, 5), Vector2(dir * 20, 22), sword, 4.0)
+
+	# Щит при блоці
+	if is_blocking:
+		draw_circle(Vector2(-dir * 20, 0), 16, Color(0.28, 0.38, 0.85, 0.88))
+		draw_circle(Vector2(-dir * 20, 0), 13, Color(0.18, 0.25, 0.65, 0.88))
+		draw_rect(Rect2(-dir * 23 - 3, -6, 6, 12), Color(0.85, 0.78, 0.40, 0.9))
+		draw_rect(Rect2(-dir * 26, -3, 12, 6),     Color(0.85, 0.78, 0.40, 0.9))
+
+	# Аура одержимості
+	if obsession_active:
+		var pulse := sin(_frame * 0.18) * 0.3 + 0.6
+		draw_circle(Vector2.ZERO, 54, Color(0.75, 0.0, 1.0, pulse * 0.22))
+		draw_circle(Vector2.ZERO, 72, Color(0.50, 0.0, 0.8, pulse * 0.10))
+		if degrade_stage >= 2:
+			draw_line(Vector2(-8, -40 - bob), Vector2(-14, -57 - bob), Color(0.5, 0.1, 0.8), 3.0)
+			draw_line(Vector2(8,  -40 - bob), Vector2(14,  -57 - bob), Color(0.5, 0.1, 0.8), 3.0)
+
+	# Деградація (перший рівень — фіолетова рука)
+	if degrade_stage >= 1 and not obsession_active:
+		draw_rect(Rect2(-dir * 14, -8, 10, 16), Color(0.65, 0.1, 0.9, 0.4))
+
+	# HP полоска
+	var hp_pct := float(current_hp) / float(C.PLAYER_HP_MAX)
+	draw_rect(Rect2(-22, -56, 44, 5),            Color(0.10, 0.10, 0.10))
+	draw_rect(Rect2(-22, -56, 44 * hp_pct, 5),   Color(0.15, 0.85, 0.30))
 #endregion
