@@ -74,7 +74,7 @@ func load_level(idx: int) -> void:
 
 	# Ресет гравця
 	if player:
-		player.global_position = Vector2(150, C.GROUND_Y - 40)
+		player.global_position = Vector2(150, C.GROUND_Y - C.PLAYER_SIZE.y * 0.5)
 		player.velocity = Vector2.ZERO
 		player.pressed_keys.clear()
 
@@ -82,14 +82,14 @@ func load_level(idx: int) -> void:
 	for ed in data["enemies"]:
 		_spawn_enemy(ed["type"], Vector2(ed["x"], ed["y"]))
 
-	print("📍 Рівень %d: %s | Ворогів: %d" % [idx + 1, level_name, enemies.size()])
+	print("📍 Уровень %d: %s | Врагов: %d" % [idx + 1, level_name, enemies.size()])
 
 func _get_level_data(idx: int) -> Dictionary:
 	var gnd := float(C.GROUND_Y)
 	match idx:
-		0:  # Січ — Руїни
+		0:  # Сечь — Руины
 			return {
-				"name": "Січ — Руїни",
+				"name": "Сечь — Руины",
 				"width": 3600.0,
 				"platforms": [
 					Rect2(0,    gnd,       3600, 400),   # земля
@@ -113,9 +113,9 @@ func _get_level_data(idx: int) -> Dictionary:
 					{"type": "pehota",    "x": 3200, "y": gnd - 34},
 				],
 			}
-		1:  # Спалені Села
+		1:  # Сожжённые Сёла
 			return {
-				"name": "Спалені Села",
+				"name": "Сожжённые Сёла",
 				"width": 4200.0,
 				"platforms": [
 					Rect2(0,    gnd,       4200, 400),
@@ -142,9 +142,9 @@ func _get_level_data(idx: int) -> Dictionary:
 					{"type": "pehota",    "x": 3900, "y": gnd - 34},
 				],
 			}
-		2:  # Підхід до Замку
+		2:  # Подступы к Замку
 			return {
-				"name": "Підхід до Замку",
+				"name": "Подступы к Замку",
 				"width": 4800.0,
 				"platforms": [
 					Rect2(0,    gnd,       4800, 400),
@@ -352,9 +352,9 @@ func _draw() -> void:
 	_draw_hud(ox, oy)
 
 	match current_state:
-		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "Натисни ESC щоб продовжити")
-		C.STATE.LOST:  _draw_overlay(ox, oy, "ЗАГИБЕЛЬ", Color(0.35, 0.0, 0.0, 0.65), "Натисни Enter щоб повторити")
-		C.STATE.WON:   _draw_overlay(ox, oy, "ПЕРЕМОГА", Color(0.0, 0.18, 0.0, 0.60), "Натисни Enter для наступного рівня")
+		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "Нажми ESC чтобы продолжить")
+		C.STATE.LOST:  _draw_overlay(ox, oy, "ГИБЕЛЬ",  Color(0.35, 0.0, 0.0, 0.65), "Нажми Enter чтобы повторить")
+		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Нажми Enter для следующего уровня")
 
 func _draw_background(ox: float, _oy: float) -> void:
 	var vw := float(C.VIEWPORT_WIDTH)
@@ -432,7 +432,7 @@ func _draw_hud(ox: float, oy: float) -> void:
 	draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), Color(0.04, 0.03, 0.06))
 	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.18, 0.06, 0.06))
 	draw_rect(Rect2(bar_x, bar_y, bar_w * hp_pct, bar_h), Color(0.78, 0.14, 0.14))
-	draw_string(font, Vector2(bar_x + 4, bar_y + 13), "HP %d / %d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+	draw_string(font, Vector2(bar_x + 4, bar_y + 13), "ХП %d / %d" % [player.current_hp, C.PLAYER_HP_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
 
 	# === ШКАЛА ОДЕРЖИМОСТІ ===
 	var obs_max := float(C.PLAYER_OBSESSION_LEVEL_THRESHOLD * C.PLAYER_OBSESSION_LEVELS)
@@ -447,7 +447,7 @@ func _draw_hud(ox: float, oy: float) -> void:
 	for i in range(1, C.PLAYER_OBSESSION_LEVELS):
 		var lx := bar_x + ob_w * float(i) / float(C.PLAYER_OBSESSION_LEVELS)
 		draw_rect(Rect2(lx - 1, ob_y, 2, 10), Color(0.04, 0.03, 0.06))
-	draw_string(font, Vector2(bar_x + 4, ob_y + 9), "Одержимість  Рівень %d / %d" % [player.obsession_level, C.PLAYER_OBSESSION_LEVELS], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.80, 0.60, 1.0))
+	draw_string(font, Vector2(bar_x + 4, ob_y + 9), "Одержимость  Уровень %d / %d" % [player.obsession_level, C.PLAYER_OBSESSION_LEVELS], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.80, 0.60, 1.0))
 
 	# === РІВЕНЬ ТА ЧАС ===
 	var mins := int(level_timer) / 60
@@ -459,7 +459,7 @@ func _draw_hud(ox: float, oy: float) -> void:
 	# === ПІДКАЗКИ (тільки рівень 1) ===
 	if current_level == 0 and level_timer < 12.0:
 		draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) / 2.0 - 180, oy + float(C.VIEWPORT_HEIGHT) - 50),
-			"A/D — рух   W — стрибок   Space — атака   R — блок   V — одержимість",
+			"A/D — движение   W — прыжок   Space — атака   R — блок   V — одержимость",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.75, 0.72, 0.60, 0.9))
 
 func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String) -> void:

@@ -34,6 +34,9 @@ var degrade_stage: int = 0
 
 #region Ввід
 var pressed_keys: Dictionary = {}
+var _prev_w: bool = false
+var _prev_space: bool = false
+var _prev_v: bool = false
 #endregion
 
 #region Анімація
@@ -45,12 +48,22 @@ signal hp_changed(hp)
 
 func _ready() -> void:
 	set_process(true)
-	print("🗡️ Yaromir ready | HP:%d" % current_hp)
+	print("🗡️ Яромир готов | HP:%d" % current_hp)
 
 func _process(delta: float) -> void:
 	if not is_alive:
 		return
 	_update_timers(delta)
+
+	# Одиночные нажатия через Input API (работает в отдельном окне)
+	var cur_w     := Input.is_key_pressed(KEY_W)
+	var cur_space := Input.is_key_pressed(KEY_SPACE)
+	var cur_v     := Input.is_key_pressed(KEY_V)
+	if cur_w     and not _prev_w:     do_jump()
+	if cur_space and not _prev_space: do_attack()
+	if cur_v     and not _prev_v:     do_obsession()
+	_prev_w = cur_w; _prev_space = cur_space; _prev_v = cur_v
+
 	_handle_input()
 	_apply_gravity(delta)
 	_apply_movement(delta)
@@ -61,12 +74,12 @@ func _process(delta: float) -> void:
 	_frame += 1
 	queue_redraw()
 
-#region Ввід
+#region Ввод
 func _handle_input() -> void:
-	is_blocking = pressed_keys.has(KEY_R) and is_on_ground and not obsession_active
+	is_blocking = (Input.is_key_pressed(KEY_R) or pressed_keys.has(KEY_R)) and is_on_ground and not obsession_active
 #endregion
 
-#region Фізика та рух
+#region Физика и движение
 func _apply_gravity(delta: float) -> void:
 	if not is_on_ground:
 		velocity.y += C.GRAVITY * delta
@@ -74,8 +87,8 @@ func _apply_gravity(delta: float) -> void:
 
 func _apply_movement(delta: float) -> void:
 	var h := 0
-	if pressed_keys.has(KEY_D): h += 1
-	if pressed_keys.has(KEY_A): h -= 1
+	if Input.is_key_pressed(KEY_D) or pressed_keys.has(KEY_D): h += 1
+	if Input.is_key_pressed(KEY_A) or pressed_keys.has(KEY_A): h -= 1
 
 	if h != 0 and not is_blocking:
 		var spd = C.PLAYER_SPEED * (1.4 if obsession_active else 1.0)
@@ -143,13 +156,13 @@ func do_obsession() -> void:
 	obsession_active = true
 	obsession_time = C.PLAYER_OBSESSION_DURATION
 	degrade_stage = mini(degrade_stage + 1, 3)
-	print("💜 OBSESSION активована! Стадія деградації: %d" % degrade_stage)
+	print("💜 ОДЕРЖИМОСТЬ активирована! Стадия деградации: %d" % degrade_stage)
 
 func take_damage(dmg: int) -> void:
 	if not is_alive or is_recovering:
 		return
 	if randf() < C.PLAYER_DODGE_CHANCE:
-		print("✨ Ухилення!")
+		print("✨ Уклонение!")
 		return
 	var actual := int(dmg * C.PLAYER_BLOCK_DAMAGE_REDUCTION) if is_blocking else dmg
 	current_hp -= actual

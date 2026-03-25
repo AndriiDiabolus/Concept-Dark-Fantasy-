@@ -36,19 +36,19 @@ const PLAYER_OBSESSION_LEVEL_THRESHOLD: float = 100.0
 #region Вороги
 const ENEMY_TYPES: Dictionary = {
 	"pehota": {
-		"name": "Піхота",
+		"name": "Пехота",
 		"hp": 30, "damage": 6,
 		"speed": 105.0, "attack_range": 60.0, "chase_range": 360.0,
 		"attack_cooldown": 1.2, "size": Vector2(38, 68),
 	},
 	"musketeer": {
-		"name": "Мушкетер",
+		"name": "Мушкетёр",
 		"hp": 50, "damage": 15,
 		"speed": 60.0, "attack_range": 380.0, "chase_range": 460.0,
 		"attack_cooldown": 3.5, "size": Vector2(38, 68),
 	},
 	"piker": {
-		"name": "Пікінер",
+		"name": "Пикинёр",
 		"hp": 80, "damage": 11,
 		"speed": 55.0, "attack_range": 125.0, "chase_range": 240.0,
 		"attack_cooldown": 2.2, "size": Vector2(42, 72),
