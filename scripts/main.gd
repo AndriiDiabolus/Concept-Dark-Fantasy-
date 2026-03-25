@@ -27,6 +27,9 @@ func _ready() -> void:
 	print("🎮 Sabbath v0.2 — Platformer")
 	_setup_scene()
 	load_level(0)
+	# Захват фокуса окна — без этого клавиши не работают из редактора
+	await get_tree().process_frame
+	get_window().grab_focus()
 
 # ──────────────────────────────────────────────
 #region Ініціалізація сцени
@@ -456,11 +459,20 @@ func _draw_hud(ox: float, oy: float) -> void:
 	draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) - 160, oy + 36), time_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.80, 0.78, 0.65))
 	draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) / 2.0 - 120, oy + 36), level_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.70, 0.60, 0.50))
 
-	# === ПІДКАЗКИ (тільки рівень 1) ===
+	# === ПОДСКАЗКИ (только уровень 1) ===
 	if current_level == 0 and level_timer < 12.0:
 		draw_string(font, Vector2(ox + float(C.VIEWPORT_WIDTH) / 2.0 - 180, oy + float(C.VIEWPORT_HEIGHT) - 50),
 			"A/D — движение   W — прыжок   Space — атака   R — блок   V — одержимость",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.75, 0.72, 0.60, 0.9))
+
+	# === DEBUG (временно) ===
+	var a := Input.is_key_pressed(KEY_A)
+	var d := Input.is_key_pressed(KEY_D)
+	var w := Input.is_key_pressed(KEY_W)
+	var dbg := "A:%s D:%s W:%s | кадр:%d" % [
+		"▮" if a else "▯", "▮" if d else "▯", "▮" if w else "▯", int(level_timer * 60)
+	]
+	draw_string(font, Vector2(ox + 24, oy + 80), dbg, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 1.0, 0.0, 0.9))
 
 func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String) -> void:
 	var font := ThemeDB.fallback_font
