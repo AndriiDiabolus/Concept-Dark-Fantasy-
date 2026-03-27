@@ -47,6 +47,24 @@ var _prev_shift_d: bool = false
 
 #region Анімація
 var _frame: int = 0
+
+# Спрайт козака (Яромир)
+var _yr_tex: Texture2D = null
+var _yr_anim: String = "idle"
+var _yr_anim_frame: int = 0
+var _yr_anim_timer: float = 0.0
+
+const YR_ANIMS: Dictionary = {
+	"idle":   {"row": 0, "col0":  0, "frames": 38, "fps": 20.0},
+	"slash0": {"row": 1, "col0":  0, "frames": 13, "fps": 20.0},
+	"slash1": {"row": 1, "col0": 13, "frames": 13, "fps": 20.0},
+	"slash2": {"row": 1, "col0": 26, "frames": 12, "fps": 20.0},
+	"run":    {"row": 2, "col0":  0, "frames": 38, "fps": 20.0},
+}
+const YR_FRAME_W: int = 232
+const YR_FRAME_H: int = 208
+const YR_SCALE: float  = 0.5
+
 # Спрайт демона (Nightborne)
 var _nb_tex: Texture2D = null
 var _nb_anim: String = "idle"
@@ -71,6 +89,7 @@ signal hp_changed(hp)
 
 func _ready() -> void:
 	set_process(true)
+	_yr_tex = load("res://assets/sprites/yaromir.png")
 	_nb_tex = load("res://assets/sprites/nightborne.png")
 	print("🗡️ Яромир готов | HP:%d" % current_hp)
 
@@ -102,6 +121,8 @@ func _process(delta: float) -> void:
 	_update_obsession(delta)
 	if obsession_active:
 		_update_nb_anim(delta)
+	else:
+		_update_yr_anim(delta)
 	if current_hp <= 0 and is_alive:
 		is_alive = false
 		player_died.emit()
@@ -258,6 +279,35 @@ func _update_timers(delta: float) -> void:
 			is_dashing = false
 #endregion
 
+#region Анімація Яроміра
+func _update_yr_anim(delta: float) -> void:
+	var want: String
+	if attack_timer > 0:
+		# combo 0→slash0, 1→slash1, 2→slash2
+		want = "slash%d" % ((attack_combo - 1 + 3) % 3)
+	elif is_moving and is_on_ground:
+		want = "run"
+	else:
+		want = "idle"
+
+	if want != _yr_anim:
+		_yr_anim = want
+		_yr_anim_frame = 0
+		_yr_anim_timer = 0.0
+
+	var anim: Dictionary = YR_ANIMS[_yr_anim]
+	_yr_anim_timer += delta
+	var spf: float = 1.0 / float(anim["fps"])
+	while _yr_anim_timer >= spf:
+		_yr_anim_timer -= spf
+		_yr_anim_frame += 1
+		if _yr_anim_frame >= int(anim["frames"]):
+			_yr_anim_frame = 0
+			if _yr_anim.begins_with("slash"):
+				_yr_anim = "idle"
+				break
+#endregion
+
 #region Анімація Nightborne
 func _update_nb_anim(delta: float) -> void:
 	# Визначаємо потрібну анімацію
@@ -314,59 +364,48 @@ func _draw() -> void:
 	else:
 		_draw_cossack()
 
-# ── Нормальний стан — Козак ──────────────────────────────
+# ── Нормальний стан — Козак (спрайт) ────────────────────
 func _draw_cossack() -> void:
 	var dir   := 1.0 if facing_right else -1.0
 	var alpha := 0.4 if (is_recovering and _frame % 8 < 4) else 1.0
 	if is_dashing:
 		alpha = 0.7 if (_frame % 4 < 2) else 1.0
 
-	var skin  := Color(0.82, 0.65, 0.46, alpha)
-	var armor := Color(0.20, 0.16, 0.10, alpha)
-	var cloth := Color(0.40, 0.30, 0.18, alpha)
-	var sword := Color(0.80, 0.78, 0.68, alpha)
-	var leg_a := sin(_frame * 0.35) * 9.0 if (is_moving and is_on_ground) else 0.0
-	var bob   := absf(sin(_frame * 0.35)) * 1.5 if (is_moving and is_on_ground) else 0.0
+	var sw := float(YR_FRAME_W) * YR_SCALE
+	var sh := float(YR_FRAME_H) * YR_SCALE
+	# Ноги спрайта на ~82% висоти кадру → зсуваємо вниз на різницю
+	var top_y := 36.0 - sh * 0.82
 
-	# Ноги + чоботи
-	draw_rect(Rect2(-10, 14 + leg_a * 0.5, 9, 22), armor)
-	draw_rect(Rect2(1,   14 - leg_a * 0.5, 9, 22), armor)
-	draw_rect(Rect2(-11, 30 + leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
-	draw_rect(Rect2(0,   30 - leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
-	# Тулуб
-	draw_rect(Rect2(-13, -14, 26, 30), armor)
-	draw_rect(Rect2(-11, -12, 22, 24), cloth)
-	draw_rect(Rect2(-13, 13, 26, 5), Color(0.24, 0.17, 0.07, alpha))
-	# Голова
-	draw_circle(Vector2(0, -28 - bob), 12, skin)
-	draw_rect(Rect2(-6, -26 - bob, 12, 3), Color(0.18, 0.09, 0.04, alpha))
-	draw_circle(Vector2(5.0 * dir, -30 - bob), 2.5, Color(0.08, 0.04, 0.02, alpha))
-	draw_rect(Rect2(-10, -44 - bob, 20, 14), Color(0.08, 0.06, 0.04, alpha))
-	draw_rect(Rect2(-8,  -46 - bob, 16,  5), Color(0.52, 0.10, 0.10, alpha))
-	# Рука + зброя
-	draw_rect(Rect2(dir * 10 - 5, -10, 10, 18), skin)
-	if attack_timer > 0:
-		draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + C.PLAYER_ATTACK_RANGE * 0.85), -28), sword, 5.0)
-	else:
-		draw_line(Vector2(dir * 14, 5), Vector2(dir * 20, 22), sword, 4.0)
-	# Щит
+	# ── Спрайт Яроміра ──
+	if _yr_tex != null:
+		var anim: Dictionary = YR_ANIMS[_yr_anim]
+		var col: int = int(anim["col0"]) + _yr_anim_frame % int(anim["frames"])
+		var src := Rect2(col * YR_FRAME_W, int(anim["row"]) * YR_FRAME_H, YR_FRAME_W, YR_FRAME_H)
+		if not facing_right:
+			src.position.x += src.size.x
+			src.size.x = -src.size.x
+		draw_texture_rect_region(_yr_tex, Rect2(-sw * 0.5, top_y, sw, sh), src, Color(1, 1, 1, alpha))
+
+	# ── Щит ──
 	if is_blocking:
-		draw_circle(Vector2(-dir * 20, 0), 16, Color(0.28, 0.38, 0.85, 0.88))
-		draw_circle(Vector2(-dir * 20, 0), 13, Color(0.18, 0.25, 0.65, 0.88))
-		draw_rect(Rect2(-dir * 23 - 3, -6, 6, 12), Color(0.85, 0.78, 0.40, 0.9))
-		draw_rect(Rect2(-dir * 26, -3, 12, 6),     Color(0.85, 0.78, 0.40, 0.9))
-	# Деградація — фіолетова рука (передвісник)
+		draw_circle(Vector2(-dir * 24, -10), 18, Color(0.28, 0.38, 0.85, 0.80 * alpha))
+		draw_circle(Vector2(-dir * 24, -10), 14, Color(0.18, 0.25, 0.65, 0.80 * alpha))
+
+	# ── Деградація — фіолетовий ореол ──
 	if degrade_stage >= 1:
-		draw_rect(Rect2(-dir * 14, -8, 10, 16), Color(0.65, 0.1, 0.9, 0.45))
-	# Рывок
+		var dp := sin(_frame * 0.12) * 0.3 + 0.7
+		draw_circle(Vector2.ZERO, 32, Color(0.65, 0.1, 0.9, 0.12 * float(degrade_stage) * dp))
+
+	# ── Рывок ──
 	if is_dashing:
-		var dp := sin(_frame * 0.5) * 0.3 + 0.7
-		draw_circle(Vector2.ZERO, 38, Color(0.2, 0.6, 1.0, dp * 0.28))
-		draw_circle(Vector2.ZERO, 55, Color(0.1, 0.4, 0.9, dp * 0.10))
-	# HP
+		var dp2 := sin(_frame * 0.5) * 0.3 + 0.7
+		draw_circle(Vector2.ZERO, 38, Color(0.2, 0.6, 1.0, dp2 * 0.28))
+		draw_circle(Vector2.ZERO, 55, Color(0.1, 0.4, 0.9, dp2 * 0.10))
+
+	# ── HP ──
 	var hp_pct := float(current_hp) / float(C.PLAYER_HP_MAX)
-	draw_rect(Rect2(-22, -56, 44, 5),          Color(0.10, 0.10, 0.10))
-	draw_rect(Rect2(-22, -56, 44 * hp_pct, 5), Color(0.15, 0.85, 0.30))
+	draw_rect(Rect2(-sw * 0.5, top_y - 8, sw, 5),          Color(0.10, 0.10, 0.10))
+	draw_rect(Rect2(-sw * 0.5, top_y - 8, sw * hp_pct, 5), Color(0.15, 0.85, 0.30))
 
 # ── Демонічний стан — Nightborne спрайт ──────────────────
 func _draw_demon() -> void:

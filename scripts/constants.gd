@@ -10,9 +10,9 @@ const TERMINAL_VELOCITY: float = 1400.0
 #endregion
 
 #region Дисплей
-const VIEWPORT_WIDTH: int = 1920
-const VIEWPORT_HEIGHT: int = 1080
-const GROUND_Y: int = 700
+const VIEWPORT_WIDTH: int = 1600
+const VIEWPORT_HEIGHT: int = 900
+const GROUND_Y: int = 600
 #endregion
 
 #region Гравець
