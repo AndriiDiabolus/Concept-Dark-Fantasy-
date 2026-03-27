@@ -47,6 +47,23 @@ var _prev_shift_d: bool = false
 
 #region Анімація
 var _frame: int = 0
+# Спрайт демона (Nightborne)
+var _nb_tex: Texture2D = null
+var _nb_anim: String = "idle"
+var _nb_anim_frame: int = 0
+var _nb_anim_timer: float = 0.0
+var _nb_hurt_t: float = 0.0
+
+const NB_ANIMS: Dictionary = {
+	"idle":   {"row": 0, "frames": 9,  "fps": 10.0},
+	"run":    {"row": 1, "frames": 6,  "fps": 12.0},
+	"attack": {"row": 2, "frames": 12, "fps": 20.0},
+	"hurt":   {"row": 3, "frames": 5,  "fps": 14.0},
+	"death":  {"row": 4, "frames": 23, "fps": 10.0},
+}
+const NB_FRAME_W: int = 80
+const NB_FRAME_H: int = 80
+const NB_SCALE: float  = 1.8
 #endregion
 
 signal player_died
@@ -54,6 +71,7 @@ signal hp_changed(hp)
 
 func _ready() -> void:
 	set_process(true)
+	_nb_tex = load("res://assets/sprites/nightborne.png")
 	print("🗡️ Яромир готов | HP:%d" % current_hp)
 
 func _process(delta: float) -> void:
@@ -82,6 +100,8 @@ func _process(delta: float) -> void:
 	_apply_gravity(delta)
 	_apply_movement(delta)
 	_update_obsession(delta)
+	if obsession_active:
+		_update_nb_anim(delta)
 	if current_hp <= 0 and is_alive:
 		is_alive = false
 		player_died.emit()
@@ -231,10 +251,45 @@ func _update_timers(delta: float) -> void:
 	if attack_timer > 0:    attack_timer    -= delta
 	if obsession_cooldown > 0: obsession_cooldown -= delta
 	if dash_cooldown > 0:   dash_cooldown   -= delta
+	if _nb_hurt_t > 0:      _nb_hurt_t      -= delta
 	if dash_timer > 0:
 		dash_timer -= delta
 		if dash_timer <= 0.0:
 			is_dashing = false
+#endregion
+
+#region Анімація Nightborne
+func _update_nb_anim(delta: float) -> void:
+	# Визначаємо потрібну анімацію
+	var want: String
+	if attack_timer > 0:
+		want = "attack"
+	elif _nb_hurt_t > 0:
+		want = "hurt"
+	elif is_moving and is_on_ground:
+		want = "run"
+	else:
+		want = "idle"
+
+	# Скидаємо кадр при зміні анімації
+	if want != _nb_anim:
+		_nb_anim = want
+		_nb_anim_frame = 0
+		_nb_anim_timer = 0.0
+
+	# Крокуємо по кадрах
+	var anim: Dictionary = NB_ANIMS[_nb_anim]
+	_nb_anim_timer += delta
+	var spf: float = 1.0 / float(anim["fps"])
+	while _nb_anim_timer >= spf:
+		_nb_anim_timer -= spf
+		_nb_anim_frame += 1
+		if _nb_anim_frame >= int(anim["frames"]):
+			_nb_anim_frame = 0
+			# attack не зациклюємо — повертаємось в idle
+			if _nb_anim == "attack":
+				_nb_anim = "idle"
+				break
 #endregion
 
 #region Статус
@@ -254,89 +309,112 @@ func _draw() -> void:
 	if not is_alive:
 		return
 
-	var dir := 1.0 if facing_right else -1.0
-
-	# Кольори
-	var skin  := Color(0.82, 0.65, 0.46)
-	var armor := Color(0.20, 0.16, 0.10)
-	var cloth := Color(0.40, 0.30, 0.18)
-	var sword := Color(0.80, 0.78, 0.68)
-
 	if obsession_active:
-		skin  = Color(0.72, 0.32, 0.92)
-		armor = Color(0.32, 0.08, 0.52)
-		sword = Color(0.72, 0.20, 1.0)
+		_draw_demon()
+	else:
+		_draw_cossack()
 
+# ── Нормальний стан — Козак ──────────────────────────────
+func _draw_cossack() -> void:
+	var dir   := 1.0 if facing_right else -1.0
 	var alpha := 0.4 if (is_recovering and _frame % 8 < 4) else 1.0
 	if is_dashing:
 		alpha = 0.7 if (_frame % 4 < 2) else 1.0
-	skin.a = alpha; armor.a = alpha; cloth.a = alpha
 
+	var skin  := Color(0.82, 0.65, 0.46, alpha)
+	var armor := Color(0.20, 0.16, 0.10, alpha)
+	var cloth := Color(0.40, 0.30, 0.18, alpha)
+	var sword := Color(0.80, 0.78, 0.68, alpha)
 	var leg_a := sin(_frame * 0.35) * 9.0 if (is_moving and is_on_ground) else 0.0
 	var bob   := absf(sin(_frame * 0.35)) * 1.5 if (is_moving and is_on_ground) else 0.0
 
-	# Ноги
+	# Ноги + чоботи
 	draw_rect(Rect2(-10, 14 + leg_a * 0.5, 9, 22), armor)
 	draw_rect(Rect2(1,   14 - leg_a * 0.5, 9, 22), armor)
-	# Чоботи
 	draw_rect(Rect2(-11, 30 + leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
 	draw_rect(Rect2(0,   30 - leg_a * 0.5, 11, 8), Color(0.14, 0.09, 0.05, alpha))
-
 	# Тулуб
 	draw_rect(Rect2(-13, -14, 26, 30), armor)
 	draw_rect(Rect2(-11, -12, 22, 24), cloth)
-	# Пояс
 	draw_rect(Rect2(-13, 13, 26, 5), Color(0.24, 0.17, 0.07, alpha))
-
 	# Голова
 	draw_circle(Vector2(0, -28 - bob), 12, skin)
-	# Вуса (козацькі)
 	draw_rect(Rect2(-6, -26 - bob, 12, 3), Color(0.18, 0.09, 0.04, alpha))
-	# Очі
-	var eye_c := Color(0.55, 0.10, 1.0) if obsession_active else Color(0.08, 0.04, 0.02, alpha)
-	draw_circle(Vector2(5.0 * dir, -30 - bob), 2.5, eye_c)
-	# Шапка козацька
+	draw_circle(Vector2(5.0 * dir, -30 - bob), 2.5, Color(0.08, 0.04, 0.02, alpha))
 	draw_rect(Rect2(-10, -44 - bob, 20, 14), Color(0.08, 0.06, 0.04, alpha))
 	draw_rect(Rect2(-8,  -46 - bob, 16,  5), Color(0.52, 0.10, 0.10, alpha))
-
 	# Рука + зброя
 	draw_rect(Rect2(dir * 10 - 5, -10, 10, 18), skin)
 	if attack_timer > 0:
-		var ext := C.PLAYER_ATTACK_RANGE * 0.85
-		draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + ext), -28), sword, 5.0)
-		if obsession_active:
-			draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + ext), -28), Color(0.8, 0.3, 1.0, 0.55), 11.0)
+		draw_line(Vector2(dir * 14, -8), Vector2(dir * (14 + C.PLAYER_ATTACK_RANGE * 0.85), -28), sword, 5.0)
 	else:
 		draw_line(Vector2(dir * 14, 5), Vector2(dir * 20, 22), sword, 4.0)
-
-	# Щит при блоці
+	# Щит
 	if is_blocking:
 		draw_circle(Vector2(-dir * 20, 0), 16, Color(0.28, 0.38, 0.85, 0.88))
 		draw_circle(Vector2(-dir * 20, 0), 13, Color(0.18, 0.25, 0.65, 0.88))
 		draw_rect(Rect2(-dir * 23 - 3, -6, 6, 12), Color(0.85, 0.78, 0.40, 0.9))
 		draw_rect(Rect2(-dir * 26, -3, 12, 6),     Color(0.85, 0.78, 0.40, 0.9))
-
-	# Аура одержимості
-	if obsession_active:
-		var pulse := sin(_frame * 0.18) * 0.3 + 0.6
-		draw_circle(Vector2.ZERO, 54, Color(0.75, 0.0, 1.0, pulse * 0.22))
-		draw_circle(Vector2.ZERO, 72, Color(0.50, 0.0, 0.8, pulse * 0.10))
-		if degrade_stage >= 2:
-			draw_line(Vector2(-8, -40 - bob), Vector2(-14, -57 - bob), Color(0.5, 0.1, 0.8), 3.0)
-			draw_line(Vector2(8,  -40 - bob), Vector2(14,  -57 - bob), Color(0.5, 0.1, 0.8), 3.0)
-
-	# Деградація (перший рівень — фіолетова рука)
-	if degrade_stage >= 1 and not obsession_active:
-		draw_rect(Rect2(-dir * 14, -8, 10, 16), Color(0.65, 0.1, 0.9, 0.4))
-
-	# Рывок — синяя аура
+	# Деградація — фіолетова рука (передвісник)
+	if degrade_stage >= 1:
+		draw_rect(Rect2(-dir * 14, -8, 10, 16), Color(0.65, 0.1, 0.9, 0.45))
+	# Рывок
 	if is_dashing:
-		var dash_pulse := sin(_frame * 0.5) * 0.3 + 0.7
-		draw_circle(Vector2.ZERO, 38, Color(0.2, 0.6, 1.0, dash_pulse * 0.30))
-		draw_circle(Vector2.ZERO, 55, Color(0.1, 0.4, 0.9, dash_pulse * 0.12))
-
-	# HP полоска
+		var dp := sin(_frame * 0.5) * 0.3 + 0.7
+		draw_circle(Vector2.ZERO, 38, Color(0.2, 0.6, 1.0, dp * 0.28))
+		draw_circle(Vector2.ZERO, 55, Color(0.1, 0.4, 0.9, dp * 0.10))
+	# HP
 	var hp_pct := float(current_hp) / float(C.PLAYER_HP_MAX)
-	draw_rect(Rect2(-22, -56, 44, 5),            Color(0.10, 0.10, 0.10))
-	draw_rect(Rect2(-22, -56, 44 * hp_pct, 5),   Color(0.15, 0.85, 0.30))
+	draw_rect(Rect2(-22, -56, 44, 5),          Color(0.10, 0.10, 0.10))
+	draw_rect(Rect2(-22, -56, 44 * hp_pct, 5), Color(0.15, 0.85, 0.30))
+
+# ── Демонічний стан — Nightborne спрайт ──────────────────
+func _draw_demon() -> void:
+	var alpha := 0.4 if (is_recovering and _frame % 8 < 4) else 1.0
+	if is_dashing:
+		alpha = 0.7 if (_frame % 4 < 2) else 1.0
+	var pulse  := sin(_frame * 0.14) * 0.4 + 0.6
+
+	# ── Аура під спрайтом ──
+	draw_circle(Vector2.ZERO, 72, Color(0.05, 0.0, 0.12, pulse * 0.30 * alpha))
+	draw_circle(Vector2.ZERO, 48, Color(0.12, 0.0, 0.22, pulse * 0.38 * alpha))
+
+	# ── Спрайт Nightborne ──
+	if _nb_tex != null:
+		var anim: Dictionary = NB_ANIMS[_nb_anim]
+		var col: int = _nb_anim_frame % int(anim["frames"])
+		var src  := Rect2(
+			col * NB_FRAME_W,
+			int(anim["row"]) * NB_FRAME_H,
+			NB_FRAME_W,
+			NB_FRAME_H
+		)
+		# Фліп при повороті вліво
+		if not facing_right:
+			src.position.x += src.size.x
+			src.size.x = -src.size.x
+
+		var sw := NB_FRAME_W * NB_SCALE
+		var sh := NB_FRAME_H * NB_SCALE
+		# Центрування: ноги на y=+36 (половина хітбоксу)
+		var dest := Rect2(-sw * 0.5, -sh + 36.0, sw, sh)
+		draw_texture_rect_region(_nb_tex, dest, src, Color(1, 1, 1, alpha))
+
+	# ── Орбітальні частки поверх спрайта ──
+	for pi2 in range(5):
+		var pa := float(pi2) / 5.0 * TAU + float(_frame) * 0.09
+		var pr := 46.0 + sin(float(_frame) * 0.15 + float(pi2)) * 7.0
+		draw_circle(Vector2(cos(pa)*pr, sin(pa)*pr*0.45),
+			2.5, Color(0.65, 0.0, 0.95, pulse * 0.60 * alpha))
+
+	# ── Рывок ──
+	if is_dashing:
+		var dp := sin(_frame * 0.5) * 0.3 + 0.7
+		draw_circle(Vector2.ZERO, 42, Color(0.4, 0.0, 0.8, dp * 0.32))
+		draw_circle(Vector2.ZERO, 60, Color(0.2, 0.0, 0.6, dp * 0.14))
+
+	# ── HP (фіолетовий у демон-режимі) ──
+	var hp_pct := float(current_hp) / float(C.PLAYER_HP_MAX)
+	draw_rect(Rect2(-22, -82, 44, 5),          Color(0.08, 0.08, 0.08))
+	draw_rect(Rect2(-22, -82, 44 * hp_pct, 5), Color(0.55, 0.0, 0.85))
 #endregion

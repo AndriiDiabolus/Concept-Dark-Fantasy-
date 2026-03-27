@@ -61,5 +61,5 @@ const ENEMY_TYPES: Dictionary = {
 #endregion
 
 #region Стани
-enum STATE { SPLASH, PLAY, PAUSE, LOST, WON }
+enum STATE { SPLASH, MENU, PLAY, PAUSE, LOST, WON }
 #endregion

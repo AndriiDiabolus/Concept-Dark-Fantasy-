@@ -15,6 +15,11 @@ var _splash_t: int = 0
 var _splash_embers: Array = []
 #endregion
 
+#region Меню
+var _menu_selected: int = 0
+var _menu_t: int = 0
+#endregion
+
 #region Ноди
 var player: Node2D
 var camera: Camera2D
@@ -36,10 +41,8 @@ func _ready() -> void:
 	get_viewport().handle_input_locally = true
 	_autotest = "--autotest" in OS.get_cmdline_user_args()
 	print("🎮 Sabbath v0.2 — Platformer%s" % (" [AUTOTEST]" if _autotest else ""))
-	# Камера нужна сразу — иначе viewport смещается без Camera2D
-	camera = Camera2D.new()
-	camera.name = "Camera2D"
-	add_child(camera)
+	# Камера нужна сразу — используем существующую из сцены (не создаём новую)
+	camera = get_node("Camera2D")
 	camera.make_current()
 	camera.global_position = Vector2(C.VIEWPORT_WIDTH / 2.0, C.VIEWPORT_HEIGHT / 2.0)
 
@@ -49,7 +52,7 @@ func _ready() -> void:
 	if _autotest:
 		_start_game()
 	else:
-		current_state = C.STATE.SPLASH
+		current_state = C.STATE.MENU
 		get_tree().paused = true
 
 func _start_game() -> void:
@@ -58,6 +61,20 @@ func _start_game() -> void:
 	_setup_scene()
 	_setup_input_catcher()
 	load_level(0)
+
+func _go_to_menu() -> void:
+	get_tree().paused = true
+	current_state = C.STATE.MENU
+	_menu_selected = 0
+	_menu_t = 0
+
+func _menu_activate() -> void:
+	if current_state != C.STATE.MENU:
+		return
+	current_state = C.STATE.PLAY  # блок повторного вызова
+	match _menu_selected:
+		0: _start_game()
+		1: get_tree().quit()
 
 # ──────────────────────────────────────────────
 #region Ініціалізація сцени
@@ -73,14 +90,9 @@ func _setup_scene() -> void:
 	else:
 		player = get_node("Player")
 
-	# Камера
-	if get_node_or_null("Camera2D") == null:
-		camera = Camera2D.new()
-		camera.name = "Camera2D"
-		add_child(camera)
-		camera.make_current()
-	else:
-		camera = get_node("Camera2D")
+	# Камера — всегда используем ноду из сцены
+	camera = get_node("Camera2D")
+	camera.make_current()
 	camera.global_position = Vector2(C.VIEWPORT_WIDTH / 2.0, C.VIEWPORT_HEIGHT / 2.0)
 #endregion
 
@@ -124,11 +136,25 @@ func load_level(idx: int) -> void:
 	level_width       = data["width"]
 	level_name        = data["name"]
 
-	# Ресет гравця
+	# Повний ресет гравця
 	if player:
 		player.global_position = Vector2(150, C.GROUND_Y - C.PLAYER_SIZE.y * 0.5)
-		player.velocity = Vector2.ZERO
+		player.velocity        = Vector2.ZERO
 		player.pressed_keys.clear()
+		player.current_hp        = C.PLAYER_HP_MAX
+		player.is_alive          = true
+		player.is_blocking       = false
+		player.is_recovering     = false
+		player.obsession_fill    = 0.0
+		player.obsession_level   = 0
+		player.obsession_active  = false
+		player.obsession_cooldown = 0.0
+		player.attack_cooldown   = 0.0
+		player.attack_timer      = 0.0
+		player.dash_cooldown     = 0.0
+		player.dash_timer        = 0.0
+		player.is_dashing        = false
+		player.degrade_stage     = 0
 
 	# Спавн ворогів
 	for ed in data["enemies"]:
@@ -318,6 +344,9 @@ func _process(delta: float) -> void:
 		C.STATE.SPLASH:
 			_splash_t += 1
 			_update_splash_embers()
+		C.STATE.MENU:
+			_menu_t += 1
+			_update_splash_embers()
 		C.STATE.PLAY:
 			level_timer += delta
 			_update_camera()
@@ -392,16 +421,32 @@ func _check_win() -> void:
 # ──────────────────────────────────────────────
 #region Ввод
 func _input(event: InputEvent) -> void:
-	# Сплэш — Enter/Space/клик запускают игру
-	if current_state == C.STATE.SPLASH and _splash_t > 60:
-		if event is InputEventMouseButton and event.pressed:
-			_start_game()
-			return
-		if event is InputEventKey and event.pressed and not event.echo:
+	# Сплэш — только Enter/Space после полной анимации → главное меню
+	if current_state == C.STATE.SPLASH:
+		get_viewport().set_input_as_handled()
+		if _splash_t > 240 and event is InputEventKey and event.pressed and not event.echo:
 			var k2: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 			if k2 == KEY_ENTER or k2 == KEY_SPACE:
-				_start_game()
-				return
+				_go_to_menu()
+		return
+
+	# Меню — навигация и выбор
+	if current_state == C.STATE.MENU:
+		get_viewport().set_input_as_handled()
+		if event is InputEventMouseButton and event.pressed:
+			get_window().grab_focus()
+			_menu_activate()
+			return
+		if not (event is InputEventKey) or not event.pressed or event.echo:
+			return
+		var km: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+		match km:
+			KEY_W, KEY_UP:
+				_menu_selected = (_menu_selected - 1 + 2) % 2
+			KEY_S, KEY_DOWN:
+				_menu_selected = (_menu_selected + 1) % 2
+			KEY_ENTER, KEY_SPACE:
+				_menu_activate()
 		return
 
 	# Клик мышью → даём фокус окну
@@ -428,15 +473,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if key == KEY_ENTER:
 		if current_state == C.STATE.LOST:
-			get_tree().paused = false
-			load_level(current_level)
+			_go_to_menu()
 		elif current_state == C.STATE.WON:
-			get_tree().paused = false
 			var next := current_level + 1
 			if next < 4:
+				get_tree().paused = false
 				load_level(next)
 			else:
-				load_level(0)  # повтор з початку
+				_go_to_menu()
 		return
 
 	# Передаємо гравцеві
@@ -454,9 +498,9 @@ func _input(event: InputEvent) -> void:
 	else:
 		player.pressed_keys.erase(key)
 
-# Резервный обработчик с другим приоритетом
-func _unhandled_input(event: InputEvent) -> void:
-	_input(event)
+# Резервный обработчик — передаём только то, что не обработано в _input
+func _unhandled_input(_event: InputEvent) -> void:
+	pass
 #endregion
 
 # ──────────────────────────────────────────────
@@ -480,14 +524,18 @@ func _draw() -> void:
 		_draw_splash(ox, oy)
 		return
 
+	if current_state == C.STATE.MENU:
+		_draw_menu(ox, oy)
+		return
+
 	_draw_background(ox, oy)
 	_draw_platforms()
 	_draw_hud(ox, oy)
 
 	match current_state:
-		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "Нажми ESC чтобы продолжить")
-		C.STATE.LOST:  _draw_overlay(ox, oy, "ГИБЕЛЬ",  Color(0.35, 0.0, 0.0, 0.65), "Нажми Enter чтобы повторить")
-		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Нажми Enter для следующего уровня")
+		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "ESC — продолжить")
+		C.STATE.LOST:  _draw_overlay(ox, oy, "ГИБЕЛЬ",  Color(0.35, 0.0, 0.0, 0.65), "Enter — в главное меню")
+		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Enter — продолжить" if current_level < 3 else "Enter — в главное меню")
 
 	# Экран фокуса — показывается пока не кликнули
 	if not _focused:
@@ -505,7 +553,7 @@ func _draw_background(ox: float, _oy: float) -> void:
 
 	# Небо — темний градієнт (Castlevania/Berserk атмосфера)
 	draw_rect(Rect2(ox, 0, vw, vh * 0.55), Color(0.03, 0.02, 0.08))
-	draw_rect(Rect2(ox, vh * 0.35, vw, vh * 0.40), Color(0.07, 0.03, 0.04))
+	draw_rect(Rect2(ox, vh * 0.35, vw, vh * 0.40), Color(0.04, 0.03, 0.06))
 
 	# Місяць
 	var moon_x := ox + vw * 0.80
@@ -533,8 +581,8 @@ func _draw_background(ox: float, _oy: float) -> void:
 		draw_circle(Vector2(tx + 9, float(C.GROUND_Y) - th - 20), 28, tree_c)
 
 	# Туман/серпанок над землею
-	draw_rect(Rect2(ox, float(C.GROUND_Y) - 55, vw, 55), Color(0.12, 0.06, 0.08, 0.28))
-	draw_rect(Rect2(ox, float(C.GROUND_Y) - 30, vw, 30), Color(0.15, 0.08, 0.10, 0.18))
+	draw_rect(Rect2(ox, float(C.GROUND_Y) - 55, vw, 55), Color(0.06, 0.04, 0.10, 0.22))
+	draw_rect(Rect2(ox, float(C.GROUND_Y) - 30, vw, 30), Color(0.04, 0.03, 0.08, 0.15))
 
 func _draw_platforms() -> void:
 	for plat_v in current_platforms:
@@ -783,4 +831,241 @@ func _draw_splash_ruins(ox: float, oy: float, vw: float, vh: float, alpha: float
 
 	# ── Земля ─────────────────────────────────────
 	draw_rect(Rect2(ox, base - 50, vw, 50), Color(0.04, 0.02, 0.03, alpha))
+
+# ── Меню — атмосферная сцена с глубиной (GOW-стиль) ──
+func _draw_menu(ox: float, oy: float) -> void:
+	var font := ThemeDB.fallback_font
+	var vw   := float(C.VIEWPORT_WIDTH)
+	var vh   := float(C.VIEWPORT_HEIGHT)
+	var t    := float(_menu_t)
+	var mx   := ox + vw * 0.5
+	var base := oy + vh
+
+	# ══ СЛОЙ 1: Небо — холодный тёмно-синий градиент ══
+	draw_rect(Rect2(ox, oy,            vw, vh * 0.30), Color(0.01, 0.01, 0.05))
+	draw_rect(Rect2(ox, oy+vh*0.25,   vw, vh * 0.20), Color(0.02, 0.02, 0.07))
+	draw_rect(Rect2(ox, oy+vh*0.40,   vw, vh * 0.20), Color(0.03, 0.02, 0.06))
+	draw_rect(Rect2(ox, oy+vh*0.55,   vw, vh * 0.20), Color(0.04, 0.02, 0.05))
+	draw_rect(Rect2(ox, oy+vh*0.70,   vw, vh * 0.30), Color(0.03, 0.01, 0.03))
+
+	# ══ СЛОЙ 2: Звёзды ══
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7771
+	for _s in range(80):
+		var sx := ox + rng.randf() * vw
+		var sy := oy + rng.randf() * vh * 0.55
+		var sa := rng.randf() * 0.5 + 0.2
+		var ss := rng.randf() * 1.5 + 0.5
+		# мерцание
+		sa *= (sin(t * 0.06 + rng.randf() * 6.28) * 0.25 + 0.75)
+		draw_circle(Vector2(sx, sy), ss, Color(0.85, 0.80, 0.75, sa))
+
+	# ══ СЛОЙ 3: Луна — холодная, серебристая ══
+	var lx := mx
+	var ly := oy + vh * 0.18
+	var moon_pulse := sin(t * 0.03) * 0.04 + 0.96
+	# Мягкий ореол — серебристо-голубой, без лучей
+	draw_circle(Vector2(lx, ly), 240, Color(0.30, 0.30, 0.50, 0.03 * moon_pulse))
+	draw_circle(Vector2(lx, ly), 160, Color(0.45, 0.45, 0.60, 0.05 * moon_pulse))
+	draw_circle(Vector2(lx, ly), 110, Color(0.60, 0.62, 0.72, 0.08 * moon_pulse))
+	draw_circle(Vector2(lx, ly),  82, Color(0.75, 0.78, 0.85, 0.12 * moon_pulse))
+	# Тело луны — холодный серебристо-белый
+	draw_circle(Vector2(lx, ly), 68, Color(0.92, 0.92, 0.96, moon_pulse))
+	# Очень слабый синеватый оттенок поверх
+	draw_circle(Vector2(lx, ly), 68, Color(0.20, 0.24, 0.45, 0.08 * moon_pulse))
+	# Кратеры
+	draw_circle(Vector2(lx - 18, ly - 12), 8,  Color(0.80, 0.80, 0.85, 0.45))
+	draw_circle(Vector2(lx + 22, ly + 10), 6,  Color(0.80, 0.80, 0.85, 0.38))
+	draw_circle(Vector2(lx -  6, ly + 24), 5,  Color(0.80, 0.80, 0.85, 0.32))
+
+	# ══ СЛОЙ 4: Далёкие горы (силуэт) ══
+	var mc := Color(0.04, 0.01, 0.05)
+	var mountains := PackedVector2Array([
+		Vector2(ox,            base - vh*0.18),
+		Vector2(ox+vw*0.08,   base - vh*0.38),
+		Vector2(ox+vw*0.18,   base - vh*0.22),
+		Vector2(ox+vw*0.28,   base - vh*0.44),
+		Vector2(ox+vw*0.38,   base - vh*0.26),
+		Vector2(ox+vw*0.50,   base - vh*0.48),
+		Vector2(ox+vw*0.62,   base - vh*0.28),
+		Vector2(ox+vw*0.72,   base - vh*0.42),
+		Vector2(ox+vw*0.82,   base - vh*0.20),
+		Vector2(ox+vw*0.92,   base - vh*0.36),
+		Vector2(ox+vw,        base - vh*0.18),
+		Vector2(ox+vw,        base),
+		Vector2(ox,           base),
+	])
+	draw_colored_polygon(mountains, mc)
+
+	# ══ СЛОЙ 5: Замок по центру (силуэт, средний план) ══
+	var cc := Color(0.03, 0.01, 0.03)
+	var bx := mx
+	var castle_base := base - vh * 0.08
+	# Центральная башня
+	draw_rect(Rect2(bx - 52, castle_base - 260, 104, 260), cc)
+	# Зубцы центральной башни
+	for i in range(6):
+		draw_rect(Rect2(bx - 48 + i * 18, castle_base - 285, 12, 28), cc)
+	# Арочное окно
+	draw_circle(Vector2(bx, castle_base - 120), 22, Color(0.01, 0.00, 0.02))
+	draw_rect(Rect2(bx - 22, castle_base - 120, 44, 22), Color(0.01, 0.00, 0.02))
+	# Малые окна
+	draw_rect(Rect2(bx - 14, castle_base - 200, 12, 18), Color(0.01, 0.00, 0.02))
+	draw_rect(Rect2(bx +  2, castle_base - 200, 12, 18), Color(0.01, 0.00, 0.02))
+	# Левая боковая башня
+	draw_rect(Rect2(bx - 160, castle_base - 170, 62, 170), cc)
+	for i in range(4):
+		draw_rect(Rect2(bx - 158 + i * 16, castle_base - 192, 11, 24), cc)
+	draw_rect(Rect2(bx - 148, castle_base - 130, 10, 16), Color(0.01, 0.00, 0.02))
+	# Правая боковая башня
+	draw_rect(Rect2(bx + 98,  castle_base - 155, 58, 155), cc)
+	for i in range(4):
+		draw_rect(Rect2(bx + 100 + i * 15, castle_base - 176, 10, 22), cc)
+	draw_rect(Rect2(bx + 112, castle_base - 118, 10, 16), Color(0.01, 0.00, 0.02))
+	# Стены (соединяют башни)
+	draw_rect(Rect2(bx - 98, castle_base - 80, 46, 80), cc)
+	draw_rect(Rect2(bx + 52, castle_base - 72, 46, 72), cc)
+	# Ворота
+	draw_rect(Rect2(bx - 22, castle_base - 58, 44, 58), Color(0.01, 0.00, 0.02))
+	draw_circle(Vector2(bx, castle_base - 58), 22, Color(0.01, 0.00, 0.02))
+
+	# ══ СЛОЙ 6: Деревья/руины по бокам ══
+	var tc := Color(0.025, 0.008, 0.02)
+	# Левое дерево
+	_draw_menu_tree(ox + vw*0.06, base - vh*0.05, 80.0, 280.0, tc)
+	_draw_menu_tree(ox + vw*0.13, base - vh*0.04, 55.0, 200.0, tc)
+	# Правое дерево
+	_draw_menu_tree(ox + vw*0.87, base - vh*0.05, 75.0, 260.0, tc)
+	_draw_menu_tree(ox + vw*0.94, base - vh*0.04, 50.0, 190.0, tc)
+	# Кресты на переднем плане
+	var crosses: Array[float] = [0.18, 0.30, 0.68, 0.80]
+	for cp: float in crosses:
+		var gx := ox + vw * cp
+		var gh := vh * (0.09 + fmod(cp * 7.3, 0.06))
+		draw_rect(Rect2(gx - 4, base - gh, 8, gh), tc)
+		draw_rect(Rect2(gx - 16, base - gh*0.72, 32, 6), tc)
+
+	# ══ СЛОЙ 7: Туман (3 полосы, разная глубина) ══
+	draw_rect(Rect2(ox, base - vh*0.28, vw, vh*0.10),
+		Color(0.08, 0.02, 0.06, 0.30))
+	draw_rect(Rect2(ox, base - vh*0.20, vw, vh*0.12),
+		Color(0.10, 0.03, 0.07, 0.42))
+	draw_rect(Rect2(ox, base - vh*0.10, vw, vh*0.10),
+		Color(0.06, 0.02, 0.04, 0.60))
+	# Земля
+	draw_rect(Rect2(ox, base - vh*0.06, vw, vh*0.06), Color(0.03, 0.01, 0.02))
+
+	# ══ СЛОЙ 8: Лунный свет вниз — едва заметные холодные лучи ══
+	for ri2 in range(5):
+		var angle2 := PI * 0.5 + (float(ri2) - 2.0) * 0.14
+		var ray_a2 := (0.025 - absf(float(ri2) - 2.0) * 0.006) * moon_pulse
+		draw_line(
+			Vector2(lx, ly + 68),
+			Vector2(lx + cos(angle2) * vw * 0.9, ly + sin(angle2) * vh * 1.2),
+			Color(0.55, 0.58, 0.75, ray_a2), 10.0
+		)
+
+	# ══ СЛОЙ 9: Угли — приглушённее ══
+	for ember in _splash_embers:
+		draw_circle(
+			Vector2(ox + ember["x"], oy + ember["y"]),
+			ember["size"],
+			Color(0.90, 0.55, 0.20, ember["alpha"] * 0.45)
+		)
+
+	# ══ СЛОЙ 10: Затемнение центра для читаемости UI ══
+	# Мягкий тёмный овал позади текста — как тень от нависающего облака
+	for layer in range(4):
+		var la := 0.12 - float(layer) * 0.025
+		var lw := vw * (0.70 - float(layer) * 0.10)
+		var lh := vh * (0.55 - float(layer) * 0.06)
+		draw_rect(Rect2(mx - lw*0.5, oy + vh*0.28 - lh*0.05, lw, lh),
+			Color(0.0, 0.0, 0.0, la))
+
+	# ══ UI: Заголовок ══
+	var title_pulse := sin(t * 0.032) * 0.08 + 0.92
+	var title_y := oy + vh * 0.38
+
+	# Тёмный подложка за заголовком для читаемости
+	draw_circle(Vector2(mx, title_y - 20), 300, Color(0.0, 0.0, 0.02, 0.30 * title_pulse))
+	draw_circle(Vector2(mx, title_y - 20), 180, Color(0.0, 0.0, 0.02, 0.20 * title_pulse))
+
+	# Главный заголовок
+	draw_string(font, Vector2(ox, title_y),
+		"SABBATH", HORIZONTAL_ALIGNMENT_CENTER, vw, 88,
+		Color(0.98, 0.88, 0.55, title_pulse))
+	# Тень заголовка
+	draw_string(font, Vector2(ox + 3, title_y + 3),
+		"SABBATH", HORIZONTAL_ALIGNMENT_CENTER, vw, 88,
+		Color(0.30, 0.05, 0.02, 0.40 * title_pulse))
+
+	# Подзаголовок
+	draw_string(font, Vector2(ox, title_y + 56),
+		"A m o n g   L i f e   a n d   D e a t h",
+		HORIZONTAL_ALIGNMENT_CENTER, vw, 20,
+		Color(0.68, 0.50, 0.35, 0.80))
+
+	# Горизонтальный орнамент под подзаголовком
+	var orn_y := title_y + 82
+	var orn_w  := vw * 0.18
+	draw_line(Vector2(mx - orn_w, orn_y), Vector2(mx - 12, orn_y),
+		Color(0.62, 0.40, 0.18, 0.50), 1.0)
+	draw_line(Vector2(mx + 12, orn_y), Vector2(mx + orn_w, orn_y),
+		Color(0.62, 0.40, 0.18, 0.50), 1.0)
+	draw_circle(Vector2(mx, orn_y), 4, Color(0.78, 0.50, 0.20, 0.75))
+	draw_circle(Vector2(mx - orn_w * 0.5, orn_y), 2, Color(0.62, 0.40, 0.18, 0.45))
+	draw_circle(Vector2(mx + orn_w * 0.5, orn_y), 2, Color(0.62, 0.40, 0.18, 0.45))
+
+	# ══ UI: Пункты меню ══
+	var items: Array[String] = ["НОВАЯ  ИГРА", "ВЫХОД"]
+	var item_start_y := title_y + 120.0
+	var item_spacing := 80.0
+
+	for i in range(items.size()):
+		var item_y := item_start_y + float(i) * item_spacing
+		var is_sel := i == _menu_selected
+
+		if is_sel:
+			var sp := sin(t * 0.07) * 0.10 + 0.90
+			# Мягкое затемнение за выбранным — без цвета, просто читаемость
+			draw_rect(Rect2(ox + vw*0.25, item_y - 36, vw*0.50, 54),
+				Color(0.0, 0.0, 0.0, 0.22 * sp))
+			draw_rect(Rect2(ox + vw*0.32, item_y - 30, vw*0.36, 44),
+				Color(0.0, 0.0, 0.0, 0.12 * sp))
+			# Текст выбранного — ярко, крупно
+			draw_string(font, Vector2(ox, item_y),
+				items[i], HORIZONTAL_ALIGNMENT_CENTER, vw, 38,
+				Color(0.98, 0.92, 0.65, sp))
+			# Подчёркивание — тонкая светящаяся линия
+			var sw := font.get_string_size(items[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
+			var sx := mx - sw * 0.5
+			draw_line(Vector2(sx, item_y + 7), Vector2(sx + sw, item_y + 7),
+				Color(0.85, 0.65, 0.28, 0.70 * sp), 1.5)
+		else:
+			draw_string(font, Vector2(ox, item_y),
+				items[i], HORIZONTAL_ALIGNMENT_CENTER, vw, 28,
+				Color(0.52, 0.34, 0.22, 0.55))
+
+	# ══ UI: Подсказка навигации (едва заметна) ══
+	var ha := sin(t * 0.04) * 0.12 + 0.28
+	draw_string(font, Vector2(ox, base - vh * 0.06),
+		"W / S   навигация          Enter   выбор",
+		HORIZONTAL_ALIGNMENT_CENTER, vw, 14,
+		Color(0.55, 0.48, 0.38, ha))
+
+func _draw_menu_tree(tx: float, ty: float, tw: float, th: float, col: Color) -> void:
+	# Ствол
+	draw_rect(Rect2(tx - tw*0.08, ty - th*0.35, tw*0.16, th*0.35), col)
+	# Крона — несколько наслоённых треугольников через полигоны
+	for layer in range(4):
+		var lf := float(layer) / 3.0
+		var lw := tw * (1.0 - lf * 0.45)
+		var lh := th * 0.30
+		var ly2 := ty - th * (0.30 + lf * 0.55)
+		var tri := PackedVector2Array([
+			Vector2(tx,        ly2 - lh),
+			Vector2(tx - lw*0.5, ly2),
+			Vector2(tx + lw*0.5, ly2),
+		])
+		draw_colored_polygon(tri, col)
 #endregion
