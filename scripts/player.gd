@@ -63,7 +63,7 @@ const YR_ANIMS: Dictionary = {
 }
 const YR_FRAME_W: int = 232
 const YR_FRAME_H: int = 208
-const YR_SCALE: float  = 0.5
+const YR_SCALE: float  = 0.65
 
 # Спрайт демона (Nightborne)
 var _nb_tex: Texture2D = null
