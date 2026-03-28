@@ -407,11 +407,10 @@ func _draw_parts(dsw: float, dsh: float, dtop_y: float,
 			src_legs, false, tint)
 
 	# ── 2. КОРПУС (BODY_START..BODY_END) — обертання навколо стегон ─────────
-	var src_body  := Rect2(0.0, kh * BODY_START, kw, kh * (BODY_END - BODY_START))
+	var src_body    := Rect2(0.0, kh * BODY_START, kw, kh * (BODY_END - BODY_START))
 	var body_dest_y := dtop_y + dsh * BODY_START
 	var body_dest_h := dsh * (BODY_END - BODY_START)
 
-	# pivot = (0, hip_y) → position = (hip_y*sin, hip_y*(1-cos))
 	var bpx := hip_y * sin(body_rot) + off_x
 	var bpy := hip_y * (1.0 - cos(body_rot))
 	draw_set_transform(Vector2(bpx, bpy), body_rot, Vector2.ONE)
@@ -426,10 +425,9 @@ func _draw_parts(dsw: float, dsh: float, dtop_y: float,
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# ── 3. ГОЛОВА (0..HEAD_END) — обертання навколо шиї ────────────────────
-	var src_head  := Rect2(0.0, 0.0, kw, kh * HEAD_END)
+	var src_head    := Rect2(0.0, 0.0, kw, kh * HEAD_END)
 	var head_dest_h := dsh * HEAD_END
 
-	# pivot = (0, neck_y) → position = (neck_y*sin, neck_y*(1-cos))
 	var hpx := neck_y * sin(head_rot)
 	var hpy := neck_y * (1.0 - cos(head_rot))
 	draw_set_transform(Vector2(hpx, hpy), head_rot, Vector2.ONE)
@@ -442,18 +440,3 @@ func _draw_parts(dsw: float, dsh: float, dtop_y: float,
 			Rect2( dsw * 0.5, dtop_y, -dsw, head_dest_h),
 			src_head, false, tint)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-# ── Запасний примітив ──────────────────────────────────────────────────────
-func _draw_primitive_fallback() -> void:
-	var hw  := enemy_size.x * 0.5
-	var hh  := enemy_size.y * 0.5
-	var dir := 1.0 if facing_right else -1.0
-	if not is_alive:
-		draw_rect(Rect2(-hw, -6, hw * 2, 14), Color(0.28, 0.18, 0.12, 0.5))
-		return
-	var body_c := Color(1.0, 0.28, 0.28) if hit_flash > 0 else Color(0.45, 0.28, 0.18)
-	draw_rect(Rect2(-hw * 0.72, -hh * 0.5, hw * 1.44, hh * 1.5), body_c)
-	draw_circle(Vector2(0.0, -hh * 0.72), hh * 0.30, Color(0.76, 0.58, 0.40))
-	draw_line(Vector2(dir * hw * 0.7, -hh * 0.28),
-		Vector2(dir * (hw + 36), -hh * 0.54), Color(0.75, 0.72, 0.64), 4.0)
-#endregion
