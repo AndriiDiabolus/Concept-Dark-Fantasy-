@@ -925,186 +925,53 @@ func _draw_menu(ox: float, oy: float) -> void:
 	draw_circle(Vector2(lx + 22, ly + 10), 6,  Color(0.80, 0.80, 0.85, 0.38))
 	draw_circle(Vector2(lx -  6, ly + 24), 5,  Color(0.80, 0.80, 0.85, 0.32))
 
-	# ══ СЛОЙ 4: Гори — чотири плани глибини ══
-
-	# ── 4А. Найдальший план: розмиті привиди гір у серпанку ─────────────────
+	# ══ СЛОЙ 4: Горы ══
+	# Дальний план — голубоватые, туманные
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.05, base-vh*0.22),
-		Vector2(ox+vw*0.10,   base-vh*0.16), Vector2(ox+vw*0.16, base-vh*0.27),
-		Vector2(ox+vw*0.22,   base-vh*0.18), Vector2(ox+vw*0.28, base-vh*0.29),
-		Vector2(ox+vw*0.34,   base-vh*0.19), Vector2(ox+vw*0.40, base-vh*0.26),
-		Vector2(ox+vw*0.47,   base-vh*0.34), Vector2(ox+vw*0.53, base-vh*0.22),
-		Vector2(ox+vw*0.60,   base-vh*0.30), Vector2(ox+vw*0.66, base-vh*0.18),
-		Vector2(ox+vw*0.72,   base-vh*0.28), Vector2(ox+vw*0.78, base-vh*0.16),
-		Vector2(ox+vw*0.84,   base-vh*0.25), Vector2(ox+vw*0.90, base-vh*0.15),
-		Vector2(ox+vw*0.95,   base-vh*0.22), Vector2(ox+vw,      base-vh*0.14),
+		Vector2(ox,           base - vh*0.22),
+		Vector2(ox+vw*0.10,  base - vh*0.32),
+		Vector2(ox+vw*0.22,  base - vh*0.24),
+		Vector2(ox+vw*0.34,  base - vh*0.38),
+		Vector2(ox+vw*0.46,  base - vh*0.28),
+		Vector2(ox+vw*0.55,  base - vh*0.40),
+		Vector2(ox+vw*0.66,  base - vh*0.26),
+		Vector2(ox+vw*0.76,  base - vh*0.34),
+		Vector2(ox+vw*0.88,  base - vh*0.24),
+		Vector2(ox+vw,       base - vh*0.20),
 		Vector2(ox+vw, base), Vector2(ox, base),
-	]), Color(0.03, 0.02, 0.07, 0.45))
-
-	# ── 4Б. Дальній план: сині гори у серпанку ──────────────────────────────
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(ox,           base-vh*0.19), Vector2(ox+vw*0.04, base-vh*0.28),
-		Vector2(ox+vw*0.08,   base-vh*0.21), Vector2(ox+vw*0.13, base-vh*0.36),
-		Vector2(ox+vw*0.18,   base-vh*0.25), Vector2(ox+vw*0.23, base-vh*0.39),
-		Vector2(ox+vw*0.28,   base-vh*0.27), Vector2(ox+vw*0.33, base-vh*0.32),
-		Vector2(ox+vw*0.38,   base-vh*0.22), Vector2(ox+vw*0.43, base-vh*0.41),
-		Vector2(ox+vw*0.48,   base-vh*0.31), Vector2(ox+vw*0.53, base-vh*0.38),
-		Vector2(ox+vw*0.57,   base-vh*0.45), Vector2(ox+vw*0.62, base-vh*0.30),
-		Vector2(ox+vw*0.67,   base-vh*0.40), Vector2(ox+vw*0.72, base-vh*0.25),
-		Vector2(ox+vw*0.77,   base-vh*0.36), Vector2(ox+vw*0.82, base-vh*0.21),
-		Vector2(ox+vw*0.87,   base-vh*0.32), Vector2(ox+vw*0.92, base-vh*0.18),
-		Vector2(ox+vw*0.96,   base-vh*0.27), Vector2(ox+vw,      base-vh*0.17),
+	]), Color(0.05, 0.03, 0.10, 0.75))
+	# Ближний план — основные горы
+	var mc := Color(0.08, 0.02, 0.09)
+	var mountains := PackedVector2Array([
+		Vector2(ox,           base - vh*0.18),
+		Vector2(ox+vw*0.08,  base - vh*0.38),
+		Vector2(ox+vw*0.18,  base - vh*0.22),
+		Vector2(ox+vw*0.28,  base - vh*0.44),
+		Vector2(ox+vw*0.38,  base - vh*0.26),
+		Vector2(ox+vw*0.50,  base - vh*0.48),
+		Vector2(ox+vw*0.62,  base - vh*0.28),
+		Vector2(ox+vw*0.72,  base - vh*0.42),
+		Vector2(ox+vw*0.82,  base - vh*0.20),
+		Vector2(ox+vw*0.92,  base - vh*0.36),
+		Vector2(ox+vw,       base - vh*0.18),
 		Vector2(ox+vw, base), Vector2(ox, base),
-	]), Color(0.05, 0.025, 0.10, 0.80))
+	])
+	draw_colored_polygon(mountains, mc)
+	# Highlight вершин — холодный лунный свет
 	draw_polyline(PackedVector2Array([
-		Vector2(ox,           base-vh*0.19), Vector2(ox+vw*0.04, base-vh*0.28),
-		Vector2(ox+vw*0.08,   base-vh*0.21), Vector2(ox+vw*0.13, base-vh*0.36),
-		Vector2(ox+vw*0.18,   base-vh*0.25), Vector2(ox+vw*0.23, base-vh*0.39),
-		Vector2(ox+vw*0.28,   base-vh*0.27), Vector2(ox+vw*0.33, base-vh*0.32),
-		Vector2(ox+vw*0.38,   base-vh*0.22), Vector2(ox+vw*0.43, base-vh*0.41),
-		Vector2(ox+vw*0.48,   base-vh*0.31), Vector2(ox+vw*0.53, base-vh*0.38),
-		Vector2(ox+vw*0.57,   base-vh*0.45), Vector2(ox+vw*0.62, base-vh*0.30),
-		Vector2(ox+vw*0.67,   base-vh*0.40), Vector2(ox+vw*0.72, base-vh*0.25),
-		Vector2(ox+vw*0.77,   base-vh*0.36), Vector2(ox+vw*0.82, base-vh*0.21),
-		Vector2(ox+vw*0.87,   base-vh*0.32), Vector2(ox+vw*0.92, base-vh*0.18),
-		Vector2(ox+vw*0.96,   base-vh*0.27), Vector2(ox+vw,      base-vh*0.17),
-	]), Color(0.28, 0.20, 0.40, 0.28), 1.0)
-
-	# ── 4В. Середній план: чіткіші гори зі сніжними шапками ─────────────────
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(ox,           base-vh*0.22), Vector2(ox+vw*0.03, base-vh*0.31),
-		Vector2(ox+vw*0.06,   base-vh*0.24), Vector2(ox+vw*0.10, base-vh*0.40),
-		Vector2(ox+vw*0.14,   base-vh*0.29), Vector2(ox+vw*0.18, base-vh*0.46),
-		Vector2(ox+vw*0.21,   base-vh*0.33), Vector2(ox+vw*0.25, base-vh*0.38),
-		Vector2(ox+vw*0.29,   base-vh*0.26), Vector2(ox+vw*0.33, base-vh*0.47),
-		Vector2(ox+vw*0.37,   base-vh*0.34), Vector2(ox+vw*0.41, base-vh*0.28),
-		Vector2(ox+vw*0.45,   base-vh*0.49), Vector2(ox+vw*0.50, base-vh*0.36),
-		Vector2(ox+vw*0.55,   base-vh*0.29), Vector2(ox+vw*0.59, base-vh*0.44),
-		Vector2(ox+vw*0.64,   base-vh*0.32), Vector2(ox+vw*0.68, base-vh*0.48),
-		Vector2(ox+vw*0.72,   base-vh*0.34), Vector2(ox+vw*0.76, base-vh*0.42),
-		Vector2(ox+vw*0.80,   base-vh*0.24), Vector2(ox+vw*0.84, base-vh*0.38),
-		Vector2(ox+vw*0.88,   base-vh*0.22), Vector2(ox+vw*0.92, base-vh*0.33),
-		Vector2(ox+vw*0.96,   base-vh*0.20), Vector2(ox+vw,      base-vh*0.22),
-		Vector2(ox+vw, base), Vector2(ox, base),
-	]), Color(0.065, 0.018, 0.090, 0.92))
-	draw_polyline(PackedVector2Array([
-		Vector2(ox,           base-vh*0.22), Vector2(ox+vw*0.03, base-vh*0.31),
-		Vector2(ox+vw*0.06,   base-vh*0.24), Vector2(ox+vw*0.10, base-vh*0.40),
-		Vector2(ox+vw*0.14,   base-vh*0.29), Vector2(ox+vw*0.18, base-vh*0.46),
-		Vector2(ox+vw*0.21,   base-vh*0.33), Vector2(ox+vw*0.25, base-vh*0.38),
-		Vector2(ox+vw*0.29,   base-vh*0.26), Vector2(ox+vw*0.33, base-vh*0.47),
-		Vector2(ox+vw*0.37,   base-vh*0.34), Vector2(ox+vw*0.41, base-vh*0.28),
-		Vector2(ox+vw*0.45,   base-vh*0.49), Vector2(ox+vw*0.50, base-vh*0.36),
-		Vector2(ox+vw*0.55,   base-vh*0.29), Vector2(ox+vw*0.59, base-vh*0.44),
-		Vector2(ox+vw*0.64,   base-vh*0.32), Vector2(ox+vw*0.68, base-vh*0.48),
-		Vector2(ox+vw*0.72,   base-vh*0.34), Vector2(ox+vw*0.76, base-vh*0.42),
-		Vector2(ox+vw*0.80,   base-vh*0.24), Vector2(ox+vw*0.84, base-vh*0.38),
-		Vector2(ox+vw*0.88,   base-vh*0.22), Vector2(ox+vw*0.92, base-vh*0.33),
-		Vector2(ox+vw*0.96,   base-vh*0.20), Vector2(ox+vw,      base-vh*0.22),
-	]), Color(0.35, 0.25, 0.50, 0.40), 1.2)
-	# Сніжні шапки середнього плану
-	for sp2m: Vector2 in PackedVector2Array([
-		Vector2(ox+vw*0.10, base-vh*0.40), Vector2(ox+vw*0.18, base-vh*0.46),
-		Vector2(ox+vw*0.33, base-vh*0.47), Vector2(ox+vw*0.45, base-vh*0.49),
-		Vector2(ox+vw*0.59, base-vh*0.44), Vector2(ox+vw*0.68, base-vh*0.48),
-	]):
-		draw_colored_polygon(PackedVector2Array([
-			sp2m+Vector2(-9,14), sp2m, sp2m+Vector2(11,17)
-		]), Color(0.78, 0.80, 0.88, 0.32))
-		draw_line(sp2m+Vector2(-5,9), sp2m, Color(0.88, 0.90, 0.95, 0.42), 1.0)
-
-	# ── 4Г. Ближній план: темні скелясті гори з деталями ─────────────────────
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.02, base-vh*0.22),
-		Vector2(ox+vw*0.05,   base-vh*0.16), Vector2(ox+vw*0.07, base-vh*0.32),
-		Vector2(ox+vw*0.10,   base-vh*0.23), Vector2(ox+vw*0.12, base-vh*0.38),
-		Vector2(ox+vw*0.15,   base-vh*0.28), Vector2(ox+vw*0.17, base-vh*0.44),
-		Vector2(ox+vw*0.20,   base-vh*0.32), Vector2(ox+vw*0.23, base-vh*0.36),
-		Vector2(ox+vw*0.26,   base-vh*0.24), Vector2(ox+vw*0.29, base-vh*0.50),
-		Vector2(ox+vw*0.32,   base-vh*0.36), Vector2(ox+vw*0.35, base-vh*0.28),
-		Vector2(ox+vw*0.38,   base-vh*0.25), Vector2(ox+vw*0.41, base-vh*0.44),
-		Vector2(ox+vw*0.44,   base-vh*0.33), Vector2(ox+vw*0.46, base-vh*0.52),
-		Vector2(ox+vw*0.49,   base-vh*0.40), Vector2(ox+vw*0.51, base-vh*0.30),
-		Vector2(ox+vw*0.54,   base-vh*0.26), Vector2(ox+vw*0.57, base-vh*0.44),
-		Vector2(ox+vw*0.60,   base-vh*0.32), Vector2(ox+vw*0.63, base-vh*0.50),
-		Vector2(ox+vw*0.66,   base-vh*0.36), Vector2(ox+vw*0.70, base-vh*0.44),
-		Vector2(ox+vw*0.73,   base-vh*0.28), Vector2(ox+vw*0.76, base-vh*0.40),
-		Vector2(ox+vw*0.80,   base-vh*0.22), Vector2(ox+vw*0.83, base-vh*0.35),
-		Vector2(ox+vw*0.86,   base-vh*0.25), Vector2(ox+vw*0.89, base-vh*0.38),
-		Vector2(ox+vw*0.93,   base-vh*0.20), Vector2(ox+vw*0.96, base-vh*0.30),
-		Vector2(ox+vw,        base-vh*0.15),
-		Vector2(ox+vw, base), Vector2(ox, base),
-	]), Color(0.055, 0.015, 0.065))
-	draw_polyline(PackedVector2Array([
-		Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.02, base-vh*0.22),
-		Vector2(ox+vw*0.05,   base-vh*0.16), Vector2(ox+vw*0.07, base-vh*0.32),
-		Vector2(ox+vw*0.10,   base-vh*0.23), Vector2(ox+vw*0.12, base-vh*0.38),
-		Vector2(ox+vw*0.15,   base-vh*0.28), Vector2(ox+vw*0.17, base-vh*0.44),
-		Vector2(ox+vw*0.20,   base-vh*0.32), Vector2(ox+vw*0.23, base-vh*0.36),
-		Vector2(ox+vw*0.26,   base-vh*0.24), Vector2(ox+vw*0.29, base-vh*0.50),
-		Vector2(ox+vw*0.32,   base-vh*0.36), Vector2(ox+vw*0.35, base-vh*0.28),
-		Vector2(ox+vw*0.38,   base-vh*0.25), Vector2(ox+vw*0.41, base-vh*0.44),
-		Vector2(ox+vw*0.44,   base-vh*0.33), Vector2(ox+vw*0.46, base-vh*0.52),
-		Vector2(ox+vw*0.49,   base-vh*0.40), Vector2(ox+vw*0.51, base-vh*0.30),
-		Vector2(ox+vw*0.54,   base-vh*0.26), Vector2(ox+vw*0.57, base-vh*0.44),
-		Vector2(ox+vw*0.60,   base-vh*0.32), Vector2(ox+vw*0.63, base-vh*0.50),
-		Vector2(ox+vw*0.66,   base-vh*0.36), Vector2(ox+vw*0.70, base-vh*0.44),
-		Vector2(ox+vw*0.73,   base-vh*0.28), Vector2(ox+vw*0.76, base-vh*0.40),
-		Vector2(ox+vw*0.80,   base-vh*0.22), Vector2(ox+vw*0.83, base-vh*0.35),
-		Vector2(ox+vw*0.86,   base-vh*0.25), Vector2(ox+vw*0.89, base-vh*0.38),
-		Vector2(ox+vw*0.93,   base-vh*0.20), Vector2(ox+vw*0.96, base-vh*0.30),
-		Vector2(ox+vw,        base-vh*0.15),
-	]), Color(0.42, 0.32, 0.58, 0.65), 1.5)
-	# Сніжні шапки ближнього плану (тільки найвищі пики)
-	for sp2n: Vector2 in PackedVector2Array([
-		Vector2(ox+vw*0.07, base-vh*0.32), Vector2(ox+vw*0.12, base-vh*0.38),
-		Vector2(ox+vw*0.17, base-vh*0.44), Vector2(ox+vw*0.29, base-vh*0.50),
-		Vector2(ox+vw*0.41, base-vh*0.44), Vector2(ox+vw*0.46, base-vh*0.52),
-		Vector2(ox+vw*0.57, base-vh*0.44), Vector2(ox+vw*0.63, base-vh*0.50),
-		Vector2(ox+vw*0.70, base-vh*0.44), Vector2(ox+vw*0.89, base-vh*0.38),
-	]):
-		draw_colored_polygon(PackedVector2Array([
-			sp2n+Vector2(-8,12), sp2n, sp2n+Vector2(10,15)
-		]), Color(0.82, 0.85, 0.92, 0.40))
-		draw_line(sp2n+Vector2(-4,8), sp2n, Color(0.90, 0.93, 0.97, 0.52), 1.0)
-		draw_line(sp2n, sp2n+Vector2(6,10), Color(0.72, 0.75, 0.82, 0.30), 1.0)
-	# Лінії скельних шарів (підказка об'єму)
-	draw_line(Vector2(ox+vw*0.07, base-vh*0.30), Vector2(ox+vw*0.12, base-vh*0.25), Color(0.14, 0.06, 0.16, 0.12), 1.0)
-	draw_line(Vector2(ox+vw*0.29, base-vh*0.43), Vector2(ox+vw*0.35, base-vh*0.36), Color(0.14, 0.06, 0.16, 0.12), 1.0)
-	draw_line(Vector2(ox+vw*0.63, base-vh*0.44), Vector2(ox+vw*0.70, base-vh*0.37), Color(0.14, 0.06, 0.16, 0.12), 1.0)
-	draw_line(Vector2(ox+vw*0.83, base-vh*0.30), Vector2(ox+vw*0.89, base-vh*0.24), Color(0.14, 0.06, 0.16, 0.12), 1.0)
-
-	# ── 4Д. Каміння та скелі біля підніжжя ───────────────────────────────────
-	for ri in range(12):
-		var rf := float(ri)
-		var rx2 := (ox + vw*(rf*0.052+0.005)) if ri < 6 else (ox + vw*((rf-6.0)*0.052+0.665))
-		var ry2 := base - vh * (0.055 + fmod(rf*0.41, 0.028))
-		var rw2 := 12.0 + fmod(rf*3.7, 14.0)
-		var rh2 := 7.0  + fmod(rf*2.1, 10.0)
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(rx2-rw2,     ry2+rh2),
-			Vector2(rx2-rw2*0.5, ry2),
-			Vector2(rx2+rw2*0.3, ry2-rh2*0.28),
-			Vector2(rx2+rw2,     ry2+rh2*0.5),
-			Vector2(rx2+rw2*1.1, ry2+rh2),
-		]), Color(0.045, 0.012, 0.052))
-		draw_line(Vector2(rx2-rw2*0.5, ry2), Vector2(rx2+rw2*0.3, ry2-rh2*0.28),
-			Color(0.26, 0.18, 0.34, 0.22), 1.0)
-
-	# ── 4Е. Мертва трава та чагарники ────────────────────────────────────────
-	for gi in range(40):
-		var gf := float(gi)
-		var gxf := (ox+vw*(gf*0.030+0.003)) if gi < 20 else (ox+vw*((gf-20.0)*0.030+0.622))
-		var gyf := base - vh * (0.042 + fmod(gf*0.33, 0.022))
-		var glen := 5.0 + fmod(gf*2.8, 9.0)
-		var gtilt := (fmod(gf*0.71, 1.0) - 0.5) * 0.5
-		draw_line(Vector2(gxf, gyf), Vector2(gxf+gtilt*glen, gyf-glen),
-			Color(0.07, 0.028, 0.05, 0.55), 1.0)
-		if fmod(gf*0.53, 1.0) > 0.5:
-			draw_line(Vector2(gxf+3, gyf), Vector2(gxf+3+gtilt*glen*0.7, gyf-glen*0.8),
-				Color(0.06, 0.022, 0.04, 0.40), 1.0)
-
-	# ══ СЛОЙ 5: Замок — чёткий силуэт + лунный highlight ══
+		Vector2(ox,           base - vh*0.18),
+		Vector2(ox+vw*0.08,  base - vh*0.38),
+		Vector2(ox+vw*0.18,  base - vh*0.22),
+		Vector2(ox+vw*0.28,  base - vh*0.44),
+		Vector2(ox+vw*0.38,  base - vh*0.26),
+		Vector2(ox+vw*0.50,  base - vh*0.48),
+		Vector2(ox+vw*0.62,  base - vh*0.28),
+		Vector2(ox+vw*0.72,  base - vh*0.42),
+		Vector2(ox+vw*0.82,  base - vh*0.20),
+		Vector2(ox+vw*0.92,  base - vh*0.36),
+		Vector2(ox+vw,       base - vh*0.18),
+	]), Color(0.38, 0.28, 0.52, 0.55), 1.5)
+		# ══ СЛОЙ 5: Замок — чёткий силуэт + лунный highlight ══
 	var cc  := Color(0.07, 0.03, 0.08)
 	var chl := Color(0.30, 0.26, 0.38)
 	var bx := mx
