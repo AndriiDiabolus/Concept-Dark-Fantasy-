@@ -198,7 +198,7 @@ func do_attack() -> void:
 
 	var dir := 1 if facing_right else -1
 	var hr := Rect2(
-		global_position.x + dir * 5.0,
+		global_position.x + dir * (C.PLAYER_SIZE.x * 0.5 + 5.0),
 		global_position.y - C.PLAYER_SIZE.y * 0.5,
 		float(dir) * C.PLAYER_ATTACK_RANGE,
 		C.PLAYER_SIZE.y
@@ -363,6 +363,26 @@ func _draw() -> void:
 		_draw_demon()
 	else:
 		_draw_cossack()
+
+	if C.DEBUG_HITBOX:
+		# Хертбокс (синій) — власний collision rect
+		var hb := Rect2(-C.PLAYER_SIZE.x * 0.5, -C.PLAYER_SIZE.y * 0.5, C.PLAYER_SIZE.x, C.PLAYER_SIZE.y)
+		draw_rect(hb, Color(0.0, 0.6, 1.0, 0.15), true)
+		draw_rect(hb, Color(0.0, 0.6, 1.0, 0.9), false)
+		# Хітбокс атаки (помаранчевий) — тільки під час удару
+		if attack_timer > 0:
+			var adir := 1 if facing_right else -1
+			var ab := Rect2(
+				adir * (C.PLAYER_SIZE.x * 0.5 + 5.0),
+				-C.PLAYER_SIZE.y * 0.5,
+				float(adir) * C.PLAYER_ATTACK_RANGE,
+				C.PLAYER_SIZE.y
+			)
+			if ab.size.x < 0:
+				ab.position.x += ab.size.x
+				ab.size.x = -ab.size.x
+			draw_rect(ab, Color(1.0, 0.55, 0.0, 0.20), true)
+			draw_rect(ab, Color(1.0, 0.55, 0.0, 0.9), false)
 
 # ── Нормальний стан — Козак (спрайт) ────────────────────
 func _draw_cossack() -> void:

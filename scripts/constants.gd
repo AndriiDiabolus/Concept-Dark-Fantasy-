@@ -3,6 +3,10 @@
 
 extends Node
 
+#region Дебаг
+const DEBUG_HITBOX: bool = true
+#endregion
+
 #region Фізика
 const GRAVITY: float = 950.0
 const JUMP_FORCE: float = -540.0
@@ -44,18 +48,47 @@ const ENEMY_TYPES: Dictionary = {
 		"hp": 30, "damage": 6,
 		"speed": 105.0, "attack_range": 60.0, "chase_range": 360.0,
 		"attack_cooldown": 1.2, "size": Vector2(38, 68),
+		"sprite_dir": "knight_weak", "tint": Color(1.0, 1.0, 1.0),
 	},
 	"musketeer": {
 		"name": "Мушкетёр",
 		"hp": 50, "damage": 15,
 		"speed": 60.0, "attack_range": 380.0, "chase_range": 460.0,
 		"attack_cooldown": 3.5, "size": Vector2(38, 68),
+		"sprite_dir": "knight_weak", "tint": Color(0.70, 0.82, 1.0),
 	},
 	"piker": {
 		"name": "Пикинёр",
 		"hp": 80, "damage": 11,
 		"speed": 55.0, "attack_range": 125.0, "chase_range": 240.0,
 		"attack_cooldown": 2.2, "size": Vector2(42, 72),
+		"sprite_dir": "knight_medium", "tint": Color(1.0, 1.0, 1.0),
+	},
+
+	# ── Рицарі: 3 рівні складності ──────────────────────────────────────
+	"knight_weak": {
+		"name": "Рицар-новачок",
+		"hp": 60, "damage": 10,
+		"speed": 88.0, "attack_range": 70.0, "chase_range": 380.0,
+		"attack_cooldown": 2.2, "size": Vector2(42, 76),
+		"sprite_dir": "knight_weak",
+		"tint": Color(1.0, 1.0, 1.0),
+	},
+	"knight_medium": {
+		"name": "Рицар",
+		"hp": 140, "damage": 22,
+		"speed": 105.0, "attack_range": 75.0, "chase_range": 420.0,
+		"attack_cooldown": 1.8, "size": Vector2(44, 78),
+		"sprite_dir": "knight_medium",
+		"tint": Color(1.0, 1.0, 1.0),
+	},
+	"knight_strong": {
+		"name": "Рицар-чемпіон",
+		"hp": 260, "damage": 40,
+		"speed": 78.0, "attack_range": 80.0, "chase_range": 360.0,
+		"attack_cooldown": 1.5, "size": Vector2(48, 82),
+		"sprite_dir": "knight_strong",
+		"tint": Color(1.0, 1.0, 1.0),
 	},
 }
 #endregion
