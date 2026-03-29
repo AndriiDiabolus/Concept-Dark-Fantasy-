@@ -522,3 +522,139 @@ git log --oneline -10
 **Git status сессии:**
 - 4 файла изменены: constants.gd, player.gd, enemy.gd, main.gd
 - Готово к коммиту в 2 логичных коммита (см. ниже)
+
+---
+
+### Сессия 7 — 2026-03-23
+**Сделано:** Спрайты рыцарей, puppet-анимация, Яромир и Ночнорождённый демон.
+
+- ✅ `_draw_parts()` — puppet-система (голова/тело/ноги независимые трансформации)
+- ✅ Спрайт-шиты врагов: `knight_weak`, `knight_medium`, `knight_strong` (CraftPix 128×128)
+- ✅ Процедурные анимации: idle, run, jump, 3-combo attack
+- ✅ Яромир — козацкий спрайт масштаб 0.65
+- ✅ Ночнорождённый демон спрайт + atmospheric menu v1
+
+**Коммиты (уже в git):**
+```
+679a8ae fix: restore missing _draw_primitive_fallback() function
+6ba652b fix: restore _draw_parts — corrupted by accidental text paste
+924a6b2 feat: puppet animation — legs/body/head independent draw transforms
+d85c2b3 feat: enemy knight sprite + procedural animations (idle/run/jump/3-combo)
+ee3e999 tweak: increase Yaromir sprite scale 0.5 → 0.65
+0b9e74b feat: Yaromir sprite — 3-combo animations + viewport 1600x900 + ground anchor fix
+7765e80 feat: Nightborne demon sprite + atmospheric menu + input fixes
+```
+
+---
+
+### Сессия 8 — 2026-03-29
+**Сделано:** Кинематографическое меню, sprite-sheet анимации врагов, дебаг хитбоксы.
+
+#### Реализовано (код)
+
+**1. Кинематографическое интро меню (`_draw_menu_intro`)**
+- `MENU_INTRO_DUR = 620` кадров (~10 сек) — однократно при первом открытии меню
+- `MENU_INTRO_BTN = 540` — кнопки появляются только с этого кадра
+- Хронология:
+  - t 0–80: тёмный экран с туманом
+  - t 40–200: луна восходит из-за гор (`moon_p` прогресс 0→1)
+  - t 80–260: звёзды проявляются (`stars_a`)
+  - t 120–300: горы и ландшафт (`land_a`) — 4-слойная система
+  - t 180–340: замок с мерцающими огнями (`lights_a`)
+  - t 220–350: комета
+  - t 300–380: лунные лучи
+  - t 380–540: угли проявляются снизу вверх (`sweep_y` техника)
+  - t 440–540: заголовок SABBATH + подзаголовок
+  - t 540+: кнопки
+- `moon_p` управляет высотой луны + интенсивностью свечения + пульсом
+
+**2. 4-слойные горы (`_draw_menu()` + `_draw_menu_intro()`)**
+- 4А: Привиди гір (0.42 alpha) — едва видимые дальние силуэты
+- 4Б: Сині гори у серпанку (0.78 alpha) + тонкий highlight
+- 4В: Середній план зі сніжними шапками (0.92 alpha) — снег на пиках
+- 4Г: Ближній план — тёмные острые скалы (полная непрозрачность) + крупные снеговые шапки по бокам
+- Камни у подножья (12 шт) + мёртвая трава (40 стеблей)
+
+**3. Анимация влёта в ворота (`_gate_intro`)**
+- `_gate_intro: bool`, `GATE_INTRO_DUR = 3.2` сек
+- При выборе "Новая игра" — замок приближается (zoom effect) вместо мгновенного старта
+- `_menu_activate()` ставит флаг, `_start_game()` вызывается через 3.2с
+
+**4. Enemy sprite-sheet анимации + defend**
+- `ANIM_FRAMES`, `ANIM_FPS`, `ANIM_IMPACT_FRAME` — словари с параметрами анимаций
+- `_load_sheets()` — загружает PNG текстуры из `assets/sprites/{sprite_dir}/`
+- 10 анимаций: idle/run/walk/attack0-2/jump/hurt/death/defend
+- `is_defending` — блок щитом с вероятностью 0.20 при атаке игрока, длительность 2с
+- `DEFEND_POWER_MULT = 3.0` — следующий удар после снятия защиты усиленный
+- Рыцари 3 уровней: `knight_weak` (60 HP), `knight_medium` (140 HP), `knight_strong` (260 HP)
+
+**5. Дебаг хитбоксы (`DEBUG_HITBOX = true`)**
+- `constants.gd`: `const DEBUG_HITBOX: bool = true`
+- `player.gd`: синий rect = collision box, оранжевый rect = attack hitbox
+- Позиция хитбокса атаки исправлена: `global_position.x + dir * (C.PLAYER_SIZE.x * 0.5 + 5.0)`
+
+#### Ключевые технические решения
+
+| Решение | Почему |
+|---------|--------|
+| `sweep_y` для углей | Проявление снизу вверх — эффект поднимающегося жара |
+| `land_a` множитель на все alpha в intro | Единый fade-in всего ландшафта без if-веток на каждый объект |
+| Горы по бокам (vw*0.07–0.17 и vw*0.78–0.93) | Центр скрыт замком и UI — снежные шапки должны быть видны |
+| GDScript `:=` требует определённого типа | `var ey: float = oy + float(ember["y"])` вместо `:=` (Dict возвращает Variant) |
+| Восстановление через JSONL | Uncommitted изменения потеряны при `git checkout HEAD` → нашли в history |
+
+#### Known Issues / Риски
+
+| Приоритет | Проблема |
+|-----------|---------|
+| 🔴 БЛОКЕР | `DEBUG_HITBOX = true` в продакшне — выключить перед релизом |
+| 🟡 Средний | Спрайт-шиты врагов грузятся из `assets/sprites/` — файлы должны быть в папке |
+| 🟡 Средний | `_gate_intro` zoom не реализован — только задержка перед стартом |
+| 🟢 Низкий | Горы в меню и интро идентичны — можно добавить параллакс в будущем |
+
+#### Текущее состояние кода (актуально)
+
+```
+scripts/
+  constants.gd   — +DEBUG_HITBOX, +sprite_dir/tint для врагов, +knight_weak/medium/strong
+  player.gd      — +DEBUG_HITBOX визуализация, +fix позиции атак-хитбокса
+  enemy.gd       — +sprite-sheet анимации, +defend механика, +3 типа рыцарей
+  main.gd        — +_draw_menu_intro (1826 строк), +gate_intro, +4-слойные горы
+assets/sprites/
+  knight_weak/   — PNG спрайт-шиты (если добавлены)
+  knight_medium/
+  knight_strong/
+  knight_parts/
+```
+
+#### Next Steps (приоритет следующей сессии)
+
+1. **Отключить `DEBUG_HITBOX`** — поставить `false` перед любым показом
+2. **Горы: убрать wireframe-эффект** — уменьшить alpha highlight-полилиний (0.75→0.2) или убрать совсем
+3. **Звуки** — удар, блок, рывок, одержимость (CC0, kenney.nl)
+4. **Win/Lose flow** — финальный экран после Level 3
+5. **Боссфайт Князя** — 4 фазы (охрана → копьё → охрана → дуэль)
+6. **Загрузка спрайтов** — проверить что `assets/sprites/knight_*/` содержат PNG файлы
+
+#### Команды запуска
+
+```bash
+# Открыть проект
+open "/Users/andriidiablo/Documents/Dark Fantasy concept/project.godot"
+
+# Парс-чек без запуска:
+"/Users/andriidiablo/Desktop/Godot.app/Contents/MacOS/Godot" \
+  --headless --path "/Users/andriidiablo/Documents/Dark Fantasy concept" \
+  --check-only --script scripts/main.gd
+
+# Git
+cd "/Users/andriidiablo/Documents/Dark Fantasy concept"
+git status && git log --oneline -8
+
+# Запуск: F5 в Godot Editor
+```
+
+**Git status сессии 8:**
+- 4 файла изменены (uncommitted): constants.gd, player.gd, enemy.gd, main.gd
+- Новые папки (untracked): assets/sprites/knight_*/
+- Готово к 2 коммитам
