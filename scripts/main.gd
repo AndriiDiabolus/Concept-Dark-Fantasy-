@@ -554,7 +554,7 @@ func _draw() -> void:
 	if not _focused:
 		var font := ThemeDB.fallback_font
 		var vw := float(C.VIEWPORT_WIDTH)
-		var vh := float(C.VIEWPORT_HEIGHT)
+		var vh := get_viewport_rect().size.y
 		draw_rect(Rect2(ox, oy, vw, vh), Color(0.0, 0.0, 0.0, 0.65))
 		draw_string(font, Vector2(ox + vw * 0.5 - 220, oy + vh * 0.5 - 10),
 			"КЛИКНИ НА ЭКРАН ЧТОБЫ НАЧАТЬ",
@@ -562,7 +562,7 @@ func _draw() -> void:
 
 func _draw_background(ox: float, _oy: float) -> void:
 	var vw := float(C.VIEWPORT_WIDTH)
-	var vh := float(C.VIEWPORT_HEIGHT)
+	var vh := get_viewport_rect().size.y
 
 	# Небо — темний градієнт (Castlevania/Berserk атмосфера)
 	draw_rect(Rect2(ox, 0, vw, vh * 0.55), Color(0.03, 0.02, 0.08))
@@ -671,7 +671,7 @@ func _draw_hud(ox: float, oy: float) -> void:
 func _draw_overlay(ox: float, oy: float, title: String, bg: Color, hint: String) -> void:
 	var font := ThemeDB.fallback_font
 	var vw   := float(C.VIEWPORT_WIDTH)
-	var vh   := float(C.VIEWPORT_HEIGHT)
+	var vh   := get_viewport_rect().size.y
 	draw_rect(Rect2(ox, oy, vw, vh), bg)
 
 	var tx := ox + vw / 2.0 - 160
@@ -708,7 +708,7 @@ func _update_splash_embers() -> void:
 func _draw_splash(ox: float, oy: float) -> void:
 	var font := ThemeDB.fallback_font
 	var vw   := float(C.VIEWPORT_WIDTH)
-	var vh   := float(C.VIEWPORT_HEIGHT)
+	var vh   := get_viewport_rect().size.y
 	var t    := float(_splash_t)
 
 	# ── Фон ──────────────────────────────────────
@@ -854,7 +854,7 @@ func _draw_menu(ox: float, oy: float) -> void:
 
 	var font := ThemeDB.fallback_font
 	var vw   := float(C.VIEWPORT_WIDTH)
-	var vh   := float(C.VIEWPORT_HEIGHT)
+	var vh   := get_viewport_rect().size.y
 	var t    := float(_menu_t)
 	var mx   := ox + vw * 0.5
 	var base := oy + vh
@@ -1099,27 +1099,15 @@ func _draw_menu(ox: float, oy: float) -> void:
 	# ══ СЛОЙ 11: Виньетка ══
 	for vi in range(5):
 		var va := (1.0 - float(vi) / 4.0) * 0.30
-		var vw2 := vw * (0.10 - float(vi) * 0.015)
+		var vw2 := vw * (0.05 - float(vi) * 0.0075)
 		draw_rect(Rect2(ox,              oy, vw2,  vh), Color(0, 0, 0, va))
 		draw_rect(Rect2(ox + vw - vw2,   oy, vw2,  vh), Color(0, 0, 0, va))
 	draw_rect(Rect2(ox, oy,           vw, vh * 0.04), Color(0, 0, 0, 0.50))
 	draw_rect(Rect2(ox, oy+vh*0.96,   vw, vh * 0.04), Color(0, 0, 0, 0.50))
 
-	# ══ СЛОЙ 10: Затемнение центра для читаемости UI ══
-	# Мягкий тёмный овал позади текста — как тень от нависающего облака
-	for layer in range(4):
-		var la := 0.12 - float(layer) * 0.025
-		var lw := vw * (0.70 - float(layer) * 0.10)
-		var lh := vh * (0.55 - float(layer) * 0.06)
-		draw_rect(Rect2(mx - lw*0.5, oy + vh*0.28 - lh*0.05, lw, lh),
-			Color(0.0, 0.0, 0.0, la))
-
 	# ══ UI: Заголовок ══
 	var title_pulse := sin(t * 0.028) * 0.06 + 0.94
 	var title_y := oy + vh * 0.38
-
-	# Подложка позади заголовка
-	draw_circle(Vector2(mx, title_y - 18), 145, Color(0.00, 0.00, 0.00, 0.30))
 
 	# Заголовок — 3 слоя: тень + свечение + основной
 	draw_string(font, Vector2(ox + 4, title_y + 5),
@@ -1228,7 +1216,7 @@ func _draw_menu(ox: float, oy: float) -> void:
 func _draw_menu_intro(ox: float, oy: float) -> void:
 	var tf   := _menu_t
 	var vw   := float(C.VIEWPORT_WIDTH)
-	var vh   := float(C.VIEWPORT_HEIGHT)
+	var vh   := get_viewport_rect().size.y
 	var mx   := ox + vw * 0.5
 	var base := oy + vh
 	var font := ThemeDB.fallback_font
@@ -1236,7 +1224,7 @@ func _draw_menu_intro(ox: float, oy: float) -> void:
 	# Прогресс каждого слоя
 	var comet_p   := clampf(float(tf -  10) / 120.0, 0.0, 1.0)
 	var moon_p    := clampf(float(tf -  60) / 240.0, 0.0, 1.0)
-	var land_a    := clampf(float(tf - 130) / 230.0, 0.0, 1.0)
+	var land_a    := clampf(float(tf - 150) /  80.0, 0.0, 1.0)
 	var sky_a     := clampf(float(tf - 180) / 220.0, 0.0, 1.0)
 	var stars_a   := clampf(float(tf - 240) / 240.0, 0.0, 1.0)
 	var lights_a  := clampf(float(tf - 300) / 140.0, 0.0, 1.0)
@@ -1259,18 +1247,20 @@ func _draw_menu_intro(ox: float, oy: float) -> void:
 
 	# ── 3. Луна (восходит из-за гор) ────────────────────────────────────────
 	# Те же радиусы, цвета и формула пульса что в _draw_menu → переход незаметен
-	var moon_y   := oy + vh * (0.95 - moon_p * 0.77)
-	var moon_pi  := (sin(float(tf) * 0.03) * 0.04 + 0.96) * moon_p
-	if moon_p > 0.0:
+	var moon_y      := oy + vh * (0.80 - moon_p * 0.62)
+	var mtn_peak_y  := oy + vh * 0.52   # высота ближнего пика гор
+	var moon_emerge_a := clampf((mtn_peak_y - moon_y) / 90.0, 0.0, 1.0)
+	var moon_pi  := (sin(float(tf) * 0.03) * 0.04 + 0.96) * moon_p * moon_emerge_a
+	if moon_emerge_a > 0.0:
 		draw_circle(Vector2(mx, moon_y), 240, Color(0.30, 0.30, 0.50, 0.03 * moon_pi))
 		draw_circle(Vector2(mx, moon_y), 160, Color(0.45, 0.45, 0.60, 0.05 * moon_pi))
 		draw_circle(Vector2(mx, moon_y), 110, Color(0.60, 0.62, 0.72, 0.08 * moon_pi))
 		draw_circle(Vector2(mx, moon_y),  82, Color(0.75, 0.78, 0.85, 0.12 * moon_pi))
 		draw_circle(Vector2(mx, moon_y),  68, Color(0.92, 0.92, 0.96, moon_pi))
 		draw_circle(Vector2(mx, moon_y),  68, Color(0.20, 0.24, 0.45, 0.08 * moon_pi))
-		draw_circle(Vector2(mx-18, moon_y-12), 8, Color(0.80, 0.80, 0.85, 0.45*moon_p))
-		draw_circle(Vector2(mx+22, moon_y+10), 6, Color(0.80, 0.80, 0.85, 0.38*moon_p))
-		draw_circle(Vector2(mx-6,  moon_y+24), 5, Color(0.80, 0.80, 0.85, 0.32*moon_p))
+		draw_circle(Vector2(mx-18, moon_y-12), 8, Color(0.80, 0.80, 0.85, 0.45*moon_emerge_a))
+		draw_circle(Vector2(mx+22, moon_y+10), 6, Color(0.80, 0.80, 0.85, 0.38*moon_emerge_a))
+		draw_circle(Vector2(mx-6,  moon_y+24), 5, Color(0.80, 0.80, 0.85, 0.32*moon_emerge_a))
 
 	# ── 4. Звёзды (зажигаются постепенно, каждая со случайной задержкой) ────
 	if stars_a > 0.0:
@@ -1310,165 +1300,51 @@ func _draw_menu_intro(ox: float, oy: float) -> void:
 		draw_circle(Vector2(cx2, cy2), 4, Color(1.0, 0.98, 0.90, ca))
 		draw_circle(Vector2(cx2, cy2), 2, Color(1.0, 1.0, 1.0, ca * 0.90))
 
-	# ── 6–7. Гори — чотири плани глибини (ідентично _draw_menu, але з land_a) ─
+	# ── 6–7. Гори — два плани (ідентично _draw_menu, з land_a) ─────────────
 	if land_a > 0.0:
+		# Дальній план — голубоватый туманный
 		draw_colored_polygon(PackedVector2Array([
-			Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.05, base-vh*0.22),
-			Vector2(ox+vw*0.10,   base-vh*0.16), Vector2(ox+vw*0.16, base-vh*0.27),
-			Vector2(ox+vw*0.22,   base-vh*0.18), Vector2(ox+vw*0.28, base-vh*0.29),
-			Vector2(ox+vw*0.34,   base-vh*0.19), Vector2(ox+vw*0.40, base-vh*0.26),
-			Vector2(ox+vw*0.47,   base-vh*0.34), Vector2(ox+vw*0.53, base-vh*0.22),
-			Vector2(ox+vw*0.60,   base-vh*0.30), Vector2(ox+vw*0.66, base-vh*0.18),
-			Vector2(ox+vw*0.72,   base-vh*0.28), Vector2(ox+vw*0.78, base-vh*0.16),
-			Vector2(ox+vw*0.84,   base-vh*0.25), Vector2(ox+vw*0.90, base-vh*0.15),
-			Vector2(ox+vw*0.95,   base-vh*0.22), Vector2(ox+vw,      base-vh*0.14),
+			Vector2(ox,           base - vh*0.22),
+			Vector2(ox+vw*0.10,  base - vh*0.32),
+			Vector2(ox+vw*0.22,  base - vh*0.24),
+			Vector2(ox+vw*0.34,  base - vh*0.38),
+			Vector2(ox+vw*0.46,  base - vh*0.28),
+			Vector2(ox+vw*0.55,  base - vh*0.40),
+			Vector2(ox+vw*0.66,  base - vh*0.26),
+			Vector2(ox+vw*0.76,  base - vh*0.34),
+			Vector2(ox+vw*0.88,  base - vh*0.24),
+			Vector2(ox+vw,       base - vh*0.20),
 			Vector2(ox+vw, base), Vector2(ox, base),
-		]), Color(0.03, 0.02, 0.07, 0.45*land_a))
+		]), Color(0.05, 0.03, 0.10, 0.75*land_a))
+		# Ближній план — основні гори
 		draw_colored_polygon(PackedVector2Array([
-			Vector2(ox,           base-vh*0.19), Vector2(ox+vw*0.04, base-vh*0.28),
-			Vector2(ox+vw*0.08,   base-vh*0.21), Vector2(ox+vw*0.13, base-vh*0.36),
-			Vector2(ox+vw*0.18,   base-vh*0.25), Vector2(ox+vw*0.23, base-vh*0.39),
-			Vector2(ox+vw*0.28,   base-vh*0.27), Vector2(ox+vw*0.33, base-vh*0.32),
-			Vector2(ox+vw*0.38,   base-vh*0.22), Vector2(ox+vw*0.43, base-vh*0.41),
-			Vector2(ox+vw*0.48,   base-vh*0.31), Vector2(ox+vw*0.53, base-vh*0.38),
-			Vector2(ox+vw*0.57,   base-vh*0.45), Vector2(ox+vw*0.62, base-vh*0.30),
-			Vector2(ox+vw*0.67,   base-vh*0.40), Vector2(ox+vw*0.72, base-vh*0.25),
-			Vector2(ox+vw*0.77,   base-vh*0.36), Vector2(ox+vw*0.82, base-vh*0.21),
-			Vector2(ox+vw*0.87,   base-vh*0.32), Vector2(ox+vw*0.92, base-vh*0.18),
-			Vector2(ox+vw*0.96,   base-vh*0.27), Vector2(ox+vw,      base-vh*0.17),
+			Vector2(ox,           base - vh*0.18),
+			Vector2(ox+vw*0.08,  base - vh*0.38),
+			Vector2(ox+vw*0.18,  base - vh*0.22),
+			Vector2(ox+vw*0.28,  base - vh*0.44),
+			Vector2(ox+vw*0.38,  base - vh*0.26),
+			Vector2(ox+vw*0.50,  base - vh*0.48),
+			Vector2(ox+vw*0.62,  base - vh*0.28),
+			Vector2(ox+vw*0.72,  base - vh*0.42),
+			Vector2(ox+vw*0.82,  base - vh*0.20),
+			Vector2(ox+vw*0.92,  base - vh*0.36),
+			Vector2(ox+vw,       base - vh*0.18),
 			Vector2(ox+vw, base), Vector2(ox, base),
-		]), Color(0.05, 0.025, 0.10, 0.80*land_a))
+		]), Color(0.08, 0.02, 0.09, land_a))
+		# Highlight вершин — холодний місячний блиск
 		draw_polyline(PackedVector2Array([
-			Vector2(ox,           base-vh*0.19), Vector2(ox+vw*0.04, base-vh*0.28),
-			Vector2(ox+vw*0.08,   base-vh*0.21), Vector2(ox+vw*0.13, base-vh*0.36),
-			Vector2(ox+vw*0.18,   base-vh*0.25), Vector2(ox+vw*0.23, base-vh*0.39),
-			Vector2(ox+vw*0.28,   base-vh*0.27), Vector2(ox+vw*0.33, base-vh*0.32),
-			Vector2(ox+vw*0.38,   base-vh*0.22), Vector2(ox+vw*0.43, base-vh*0.41),
-			Vector2(ox+vw*0.48,   base-vh*0.31), Vector2(ox+vw*0.53, base-vh*0.38),
-			Vector2(ox+vw*0.57,   base-vh*0.45), Vector2(ox+vw*0.62, base-vh*0.30),
-			Vector2(ox+vw*0.67,   base-vh*0.40), Vector2(ox+vw*0.72, base-vh*0.25),
-			Vector2(ox+vw*0.77,   base-vh*0.36), Vector2(ox+vw*0.82, base-vh*0.21),
-			Vector2(ox+vw*0.87,   base-vh*0.32), Vector2(ox+vw*0.92, base-vh*0.18),
-			Vector2(ox+vw*0.96,   base-vh*0.27), Vector2(ox+vw,      base-vh*0.17),
-		]), Color(0.28, 0.20, 0.40, 0.28*land_a), 1.0)
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(ox,           base-vh*0.22), Vector2(ox+vw*0.03, base-vh*0.31),
-			Vector2(ox+vw*0.06,   base-vh*0.24), Vector2(ox+vw*0.10, base-vh*0.40),
-			Vector2(ox+vw*0.14,   base-vh*0.29), Vector2(ox+vw*0.18, base-vh*0.46),
-			Vector2(ox+vw*0.21,   base-vh*0.33), Vector2(ox+vw*0.25, base-vh*0.38),
-			Vector2(ox+vw*0.29,   base-vh*0.26), Vector2(ox+vw*0.33, base-vh*0.47),
-			Vector2(ox+vw*0.37,   base-vh*0.34), Vector2(ox+vw*0.41, base-vh*0.28),
-			Vector2(ox+vw*0.45,   base-vh*0.49), Vector2(ox+vw*0.50, base-vh*0.36),
-			Vector2(ox+vw*0.55,   base-vh*0.29), Vector2(ox+vw*0.59, base-vh*0.44),
-			Vector2(ox+vw*0.64,   base-vh*0.32), Vector2(ox+vw*0.68, base-vh*0.48),
-			Vector2(ox+vw*0.72,   base-vh*0.34), Vector2(ox+vw*0.76, base-vh*0.42),
-			Vector2(ox+vw*0.80,   base-vh*0.24), Vector2(ox+vw*0.84, base-vh*0.38),
-			Vector2(ox+vw*0.88,   base-vh*0.22), Vector2(ox+vw*0.92, base-vh*0.33),
-			Vector2(ox+vw*0.96,   base-vh*0.20), Vector2(ox+vw,      base-vh*0.22),
-			Vector2(ox+vw, base), Vector2(ox, base),
-		]), Color(0.065, 0.018, 0.090, 0.92*land_a))
-		draw_polyline(PackedVector2Array([
-			Vector2(ox,           base-vh*0.22), Vector2(ox+vw*0.03, base-vh*0.31),
-			Vector2(ox+vw*0.06,   base-vh*0.24), Vector2(ox+vw*0.10, base-vh*0.40),
-			Vector2(ox+vw*0.14,   base-vh*0.29), Vector2(ox+vw*0.18, base-vh*0.46),
-			Vector2(ox+vw*0.21,   base-vh*0.33), Vector2(ox+vw*0.25, base-vh*0.38),
-			Vector2(ox+vw*0.29,   base-vh*0.26), Vector2(ox+vw*0.33, base-vh*0.47),
-			Vector2(ox+vw*0.37,   base-vh*0.34), Vector2(ox+vw*0.41, base-vh*0.28),
-			Vector2(ox+vw*0.45,   base-vh*0.49), Vector2(ox+vw*0.50, base-vh*0.36),
-			Vector2(ox+vw*0.55,   base-vh*0.29), Vector2(ox+vw*0.59, base-vh*0.44),
-			Vector2(ox+vw*0.64,   base-vh*0.32), Vector2(ox+vw*0.68, base-vh*0.48),
-			Vector2(ox+vw*0.72,   base-vh*0.34), Vector2(ox+vw*0.76, base-vh*0.42),
-			Vector2(ox+vw*0.80,   base-vh*0.24), Vector2(ox+vw*0.84, base-vh*0.38),
-			Vector2(ox+vw*0.88,   base-vh*0.22), Vector2(ox+vw*0.92, base-vh*0.33),
-			Vector2(ox+vw*0.96,   base-vh*0.20), Vector2(ox+vw,      base-vh*0.22),
-		]), Color(0.35, 0.25, 0.50, 0.40*land_a), 1.2)
-		for sp2m: Vector2 in PackedVector2Array([
-			Vector2(ox+vw*0.10, base-vh*0.40), Vector2(ox+vw*0.18, base-vh*0.46),
-			Vector2(ox+vw*0.33, base-vh*0.47), Vector2(ox+vw*0.45, base-vh*0.49),
-			Vector2(ox+vw*0.59, base-vh*0.44), Vector2(ox+vw*0.68, base-vh*0.48),
-		]):
-			draw_colored_polygon(PackedVector2Array([sp2m+Vector2(-9,14), sp2m, sp2m+Vector2(11,17)]),
-				Color(0.78, 0.80, 0.88, 0.32*land_a))
-			draw_line(sp2m+Vector2(-5,9), sp2m, Color(0.88, 0.90, 0.95, 0.42*land_a), 1.0)
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.02, base-vh*0.22),
-			Vector2(ox+vw*0.05,   base-vh*0.16), Vector2(ox+vw*0.07, base-vh*0.32),
-			Vector2(ox+vw*0.10,   base-vh*0.23), Vector2(ox+vw*0.12, base-vh*0.38),
-			Vector2(ox+vw*0.15,   base-vh*0.28), Vector2(ox+vw*0.17, base-vh*0.44),
-			Vector2(ox+vw*0.20,   base-vh*0.32), Vector2(ox+vw*0.23, base-vh*0.36),
-			Vector2(ox+vw*0.26,   base-vh*0.24), Vector2(ox+vw*0.29, base-vh*0.50),
-			Vector2(ox+vw*0.32,   base-vh*0.36), Vector2(ox+vw*0.35, base-vh*0.28),
-			Vector2(ox+vw*0.38,   base-vh*0.25), Vector2(ox+vw*0.41, base-vh*0.44),
-			Vector2(ox+vw*0.44,   base-vh*0.33), Vector2(ox+vw*0.46, base-vh*0.52),
-			Vector2(ox+vw*0.49,   base-vh*0.40), Vector2(ox+vw*0.51, base-vh*0.30),
-			Vector2(ox+vw*0.54,   base-vh*0.26), Vector2(ox+vw*0.57, base-vh*0.44),
-			Vector2(ox+vw*0.60,   base-vh*0.32), Vector2(ox+vw*0.63, base-vh*0.50),
-			Vector2(ox+vw*0.66,   base-vh*0.36), Vector2(ox+vw*0.70, base-vh*0.44),
-			Vector2(ox+vw*0.73,   base-vh*0.28), Vector2(ox+vw*0.76, base-vh*0.40),
-			Vector2(ox+vw*0.80,   base-vh*0.22), Vector2(ox+vw*0.83, base-vh*0.35),
-			Vector2(ox+vw*0.86,   base-vh*0.25), Vector2(ox+vw*0.89, base-vh*0.38),
-			Vector2(ox+vw*0.93,   base-vh*0.20), Vector2(ox+vw*0.96, base-vh*0.30),
-			Vector2(ox+vw,        base-vh*0.15),
-			Vector2(ox+vw, base), Vector2(ox, base),
-		]), Color(0.055, 0.015, 0.065, land_a))
-		draw_polyline(PackedVector2Array([
-			Vector2(ox,           base-vh*0.14), Vector2(ox+vw*0.02, base-vh*0.22),
-			Vector2(ox+vw*0.05,   base-vh*0.16), Vector2(ox+vw*0.07, base-vh*0.32),
-			Vector2(ox+vw*0.10,   base-vh*0.23), Vector2(ox+vw*0.12, base-vh*0.38),
-			Vector2(ox+vw*0.15,   base-vh*0.28), Vector2(ox+vw*0.17, base-vh*0.44),
-			Vector2(ox+vw*0.20,   base-vh*0.32), Vector2(ox+vw*0.23, base-vh*0.36),
-			Vector2(ox+vw*0.26,   base-vh*0.24), Vector2(ox+vw*0.29, base-vh*0.50),
-			Vector2(ox+vw*0.32,   base-vh*0.36), Vector2(ox+vw*0.35, base-vh*0.28),
-			Vector2(ox+vw*0.38,   base-vh*0.25), Vector2(ox+vw*0.41, base-vh*0.44),
-			Vector2(ox+vw*0.44,   base-vh*0.33), Vector2(ox+vw*0.46, base-vh*0.52),
-			Vector2(ox+vw*0.49,   base-vh*0.40), Vector2(ox+vw*0.51, base-vh*0.30),
-			Vector2(ox+vw*0.54,   base-vh*0.26), Vector2(ox+vw*0.57, base-vh*0.44),
-			Vector2(ox+vw*0.60,   base-vh*0.32), Vector2(ox+vw*0.63, base-vh*0.50),
-			Vector2(ox+vw*0.66,   base-vh*0.36), Vector2(ox+vw*0.70, base-vh*0.44),
-			Vector2(ox+vw*0.73,   base-vh*0.28), Vector2(ox+vw*0.76, base-vh*0.40),
-			Vector2(ox+vw*0.80,   base-vh*0.22), Vector2(ox+vw*0.83, base-vh*0.35),
-			Vector2(ox+vw*0.86,   base-vh*0.25), Vector2(ox+vw*0.89, base-vh*0.38),
-			Vector2(ox+vw*0.93,   base-vh*0.20), Vector2(ox+vw*0.96, base-vh*0.30),
-			Vector2(ox+vw,        base-vh*0.15),
-		]), Color(0.42, 0.32, 0.58, 0.65*land_a), 1.5)
-		for sp2n: Vector2 in PackedVector2Array([
-			Vector2(ox+vw*0.07, base-vh*0.32), Vector2(ox+vw*0.12, base-vh*0.38),
-			Vector2(ox+vw*0.17, base-vh*0.44), Vector2(ox+vw*0.29, base-vh*0.50),
-			Vector2(ox+vw*0.41, base-vh*0.44), Vector2(ox+vw*0.46, base-vh*0.52),
-			Vector2(ox+vw*0.57, base-vh*0.44), Vector2(ox+vw*0.63, base-vh*0.50),
-			Vector2(ox+vw*0.70, base-vh*0.44), Vector2(ox+vw*0.89, base-vh*0.38),
-		]):
-			draw_colored_polygon(PackedVector2Array([sp2n+Vector2(-8,12), sp2n, sp2n+Vector2(10,15)]),
-				Color(0.82, 0.85, 0.92, 0.40*land_a))
-			draw_line(sp2n+Vector2(-4,8), sp2n, Color(0.90, 0.93, 0.97, 0.52*land_a), 1.0)
-			draw_line(sp2n, sp2n+Vector2(6,10), Color(0.72, 0.75, 0.82, 0.30*land_a), 1.0)
-		# Каміння та трава
-		for ri in range(12):
-			var rf := float(ri)
-			var rx2 := (ox+vw*(rf*0.052+0.005)) if ri < 6 else (ox+vw*((rf-6.0)*0.052+0.665))
-			var ry2 := base - vh*(0.055 + fmod(rf*0.41, 0.028))
-			var rw2 := 12.0 + fmod(rf*3.7, 14.0)
-			var rh2 :=  7.0 + fmod(rf*2.1, 10.0)
-			draw_colored_polygon(PackedVector2Array([
-				Vector2(rx2-rw2,     ry2+rh2),
-				Vector2(rx2-rw2*0.5, ry2),
-				Vector2(rx2+rw2*0.3, ry2-rh2*0.28),
-				Vector2(rx2+rw2,     ry2+rh2*0.5),
-				Vector2(rx2+rw2*1.1, ry2+rh2),
-			]), Color(0.045, 0.012, 0.052, land_a))
-			draw_line(Vector2(rx2-rw2*0.5, ry2), Vector2(rx2+rw2*0.3, ry2-rh2*0.28),
-				Color(0.26, 0.18, 0.34, 0.22*land_a), 1.0)
-		for gi in range(40):
-			var gf := float(gi)
-			var gxf := (ox+vw*(gf*0.030+0.003)) if gi < 20 else (ox+vw*((gf-20.0)*0.030+0.622))
-			var gyf := base - vh*(0.042 + fmod(gf*0.33, 0.022))
-			var glen := 5.0 + fmod(gf*2.8, 9.0)
-			var gtilt := (fmod(gf*0.71, 1.0) - 0.5) * 0.5
-			draw_line(Vector2(gxf, gyf), Vector2(gxf+gtilt*glen, gyf-glen),
-				Color(0.07, 0.028, 0.05, 0.55*land_a), 1.0)
-			if fmod(gf*0.53, 1.0) > 0.5:
-				draw_line(Vector2(gxf+3, gyf), Vector2(gxf+3+gtilt*glen*0.7, gyf-glen*0.8),
-					Color(0.06, 0.022, 0.04, 0.40*land_a), 1.0)
+			Vector2(ox,           base - vh*0.18),
+			Vector2(ox+vw*0.08,  base - vh*0.38),
+			Vector2(ox+vw*0.18,  base - vh*0.22),
+			Vector2(ox+vw*0.28,  base - vh*0.44),
+			Vector2(ox+vw*0.38,  base - vh*0.26),
+			Vector2(ox+vw*0.50,  base - vh*0.48),
+			Vector2(ox+vw*0.62,  base - vh*0.28),
+			Vector2(ox+vw*0.72,  base - vh*0.42),
+			Vector2(ox+vw*0.82,  base - vh*0.20),
+			Vector2(ox+vw*0.92,  base - vh*0.36),
+			Vector2(ox+vw,       base - vh*0.18),
+		]), Color(0.38, 0.28, 0.52, 0.55*land_a), 1.5)
 
 	# ── 8. Замок (проявляется вместе с ландшафтом, огни зажигаются позже) ──
 	if land_a > 0.0:
@@ -1549,13 +1425,19 @@ func _draw_menu_intro(ox: float, oy: float) -> void:
 			Color(0.07, 0.02, 0.05, 0.22*land_a))
 		draw_rect(Rect2(ox, base-vh*0.05, vw, vh*0.05), Color(0.025, 0.008, 0.018, land_a))
 
-	# ── 11. Лунные лучи (появляются когда луна взошла над горами) ──────────
-	# moon_p ≈ 0.64 — момент когда луна выходит из-за гор
-	var ray_a := clampf((moon_p - 0.64) / 0.36, 0.0, 1.0)
-	if ray_a > 0.0:
+	# ── 11. Лунные лучи (медленно появляются только когда луна полностью взошла) ──
+	var rays_a := clampf(float(tf - 300) / 200.0, 0.0, 1.0)
+	if rays_a > 0.0:
+		# Два несвязанных синуса на луч — разные частоты и фазы, никогда не синхронизируются
+		var ray_f1 := [0.011, 0.071, 0.029, 0.083, 0.017, 0.059, 0.041]
+		var ray_f2 := [0.067, 0.019, 0.053, 0.013, 0.079, 0.031, 0.061]
+		var ray_ph := [0.00,  2.10,  4.50,  1.30,  5.80,  3.20,  0.90]
 		for ri2 in range(7):
-			var angle2 := PI * 0.5 + (float(ri2) - 3.0) * 0.12
-			var r_a    := (0.032 - absf(float(ri2) - 3.0) * 0.005) * ray_a
+			var angle2  := PI * 0.5 + (float(ri2) - 3.0) * 0.12
+			var t2      := float(tf)
+			var flicker := sin(t2 * ray_f1[ri2] + ray_ph[ri2]) * 0.20 \
+						 + sin(t2 * ray_f2[ri2] + ray_ph[ri2] * 1.7) * 0.12 + 0.68
+			var r_a     := (0.032 - absf(float(ri2) - 3.0) * 0.005) * rays_a * flicker
 			draw_line(Vector2(mx, moon_y + 68),
 				Vector2(mx + cos(angle2) * vw, moon_y + sin(angle2) * vh * 1.3),
 				Color(0.55, 0.58, 0.75, r_a), 12.0)
@@ -1578,27 +1460,17 @@ func _draw_menu_intro(ox: float, oy: float) -> void:
 	if land_a > 0.0:
 		for vi in range(5):
 			var va  := (1.0 - float(vi) / 4.0) * 0.30 * land_a
-			var vw2 := vw * (0.10 - float(vi) * 0.015)
+			var vw2 := vw * (0.05 - float(vi) * 0.0075)
 			draw_rect(Rect2(ox,         oy, vw2, vh), Color(0, 0, 0, va))
 			draw_rect(Rect2(ox+vw-vw2,  oy, vw2, vh), Color(0, 0, 0, va))
 		draw_rect(Rect2(ox, oy,          vw, vh * 0.04), Color(0, 0, 0, 0.50 * land_a))
 		draw_rect(Rect2(ox, oy+vh*0.96,  vw, vh * 0.04), Color(0, 0, 0, 0.50 * land_a))
-
-	# ── 13 (далее). Затемнение центра под UI (проявляется вместе с заголовком) ──
-	if title_a > 0.0:
-		for layer in range(4):
-			var la := (0.12 - float(layer) * 0.025) * title_a
-			var lw := vw * (0.70 - float(layer) * 0.10)
-			var lh := vh * (0.55 - float(layer) * 0.06)
-			draw_rect(Rect2(mx - lw*0.5, oy + vh*0.28 - lh*0.05, lw, lh),
-				Color(0.0, 0.0, 0.0, la))
 
 	# ── 13. Заголовок «SABBATH» (проявляется) ───────────────────────────────
 	if title_a > 0.0:
 		# та же формула пульса что в _draw_menu → фаза непрерывна при переходе
 		var tp := (sin(float(tf) * 0.028) * 0.06 + 0.94) * title_a
 		var title_y := oy + vh * 0.38
-		draw_circle(Vector2(mx, title_y-18), 145, Color(0.0, 0.0, 0.0, 0.30*title_a))
 		draw_string(font, Vector2(ox+4, title_y+5),  "SABBATH",
 			HORIZONTAL_ALIGNMENT_CENTER, vw, 88, Color(0.10, 0.02, 0.01, 0.55*tp))
 		draw_string(font, Vector2(ox-1, title_y-1),  "SABBATH",
