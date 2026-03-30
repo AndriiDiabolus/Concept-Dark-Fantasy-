@@ -38,6 +38,17 @@ var level_width: float = 3600.0
 var level_name: String = ""
 #endregion
 
+#region Назва кімнати
+var _room_title_t: float = 999.0  # секунды с начала уровня; 999 = уже скрыто
+#endregion
+
+#region Перехід між рівнями
+var _fade_t: float     = 0.0   # 0.0 = прозорий, 1.0 = чорний
+var _fade_dir: int     = 0     # 0 = стоїмо, 1 = темніємо, 2 = світлішаємо
+var _fade_next: int    = -1    # індекс наступного рівня
+var _spawn_right: bool = false # true = спавн справа (повернення назад)
+#endregion
+
 # ──────────────────────────────────────────────
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -129,6 +140,7 @@ func _on_catcher_gui_input(event: InputEvent) -> void:
 func load_level(idx: int) -> void:
 	current_level = idx
 	level_timer = 0.0
+	_room_title_t = 0.0
 	current_state = C.STATE.PLAY
 
 	# Очищаємо ворогів
@@ -144,7 +156,9 @@ func load_level(idx: int) -> void:
 
 	# Повний ресет гравця
 	if player:
-		player.global_position = Vector2(150, C.GROUND_Y - C.PLAYER_SIZE.y * 0.5)
+		var spawn_x := (level_width - 150.0) if _spawn_right else 150.0
+		player.global_position = Vector2(spawn_x, C.GROUND_Y - C.PLAYER_SIZE.y * 0.5)
+		_spawn_right = false
 		player.velocity        = Vector2.ZERO
 		player.pressed_keys.clear()
 		player.current_hp        = C.PLAYER_HP_MAX
@@ -171,9 +185,9 @@ func load_level(idx: int) -> void:
 func _get_level_data(idx: int) -> Dictionary:
 	var gnd := float(C.GROUND_Y)
 	match idx:
-		0:  # Сечь — Руины
+		0:  # TESTROOM — тестовая комната для экспериментов
 			return {
-				"name": "Сечь — Руины",
+				"name": "TESTROOM",
 				"width": 3600.0,
 				"platforms": [
 					Rect2(0,    gnd,       3600, 400),   # земля
@@ -197,7 +211,16 @@ func _get_level_data(idx: int) -> Dictionary:
 					{"type": "pehota",    "x": 3200, "y": gnd - 34},
 				],
 			}
-		1:  # Сожжённые Сёла
+		1:  # Sitch — WIP (пока тёмный экран)
+			return {
+				"name": "Sitch",
+				"width": 3600.0,
+				"platforms": [
+					Rect2(0, gnd, 3600, 400),
+				],
+				"enemies": [],
+			}
+		2:  # Сожжённые Сёла
 			return {
 				"name": "Сожжённые Сёла",
 				"width": 4200.0,
@@ -226,7 +249,7 @@ func _get_level_data(idx: int) -> Dictionary:
 					{"type": "pehota",    "x": 3900, "y": gnd - 34},
 				],
 			}
-		2:  # Подступы к Замку
+		3:  # Подступы к Замку
 			return {
 				"name": "Подступы к Замку",
 				"width": 4800.0,
@@ -258,7 +281,7 @@ func _get_level_data(idx: int) -> Dictionary:
 					{"type": "pehota",    "x": 4500, "y": gnd - 34},
 				],
 			}
-		3:  # Цитадель
+		4:  # Цитадель
 			return {
 				"name": "Цитадель",
 				"width": 5500.0,
@@ -360,10 +383,32 @@ func _process(delta: float) -> void:
 					_start_game()
 		C.STATE.PLAY:
 			level_timer += delta
+			if _room_title_t < 5.0:
+				_room_title_t += delta
 			_update_camera()
-			_check_win()
-		_:
-			pass
+			# Триггер правого края — переход вперёд
+			if _fade_dir == 0 and player and player.global_position.x >= level_width - 80.0:
+				_fade_dir  = 1
+				_fade_next = current_level + 1
+			# Триггер левого края — возврат назад
+			elif _fade_dir == 0 and player and player.global_position.x <= 80.0 and current_level > 0:
+				_fade_dir    = 1
+				_fade_next   = current_level - 1
+				_spawn_right = true
+
+	# Обновляем фейд независимо от состояния
+	if _fade_dir == 1:
+		_fade_t = minf(_fade_t + delta * 2.0, 1.0)
+		if _fade_t >= 1.0:
+			if _fade_next < 5:
+				load_level(_fade_next)
+			else:
+				_go_to_menu()
+			_fade_dir = 2
+	elif _fade_dir == 2:
+		_fade_t = maxf(_fade_t - delta * 2.0, 0.0)
+		if _fade_t <= 0.0:
+			_fade_dir = 0
 	queue_redraw()
 
 # Автотест — запускается при --autotest аргументе
@@ -489,7 +534,7 @@ func _input(event: InputEvent) -> void:
 			_go_to_menu()
 		elif current_state == C.STATE.WON:
 			var next := current_level + 1
-			if next < 4:
+			if next < 5:
 				get_tree().paused = false
 				load_level(next)
 			else:
@@ -543,12 +588,42 @@ func _draw() -> void:
 
 	_draw_background(ox, oy)
 	_draw_platforms()
+
+	# Sitch — пока тёмный экран, комната в разработке
+	if current_level == 1:
+		var vw := float(C.VIEWPORT_WIDTH)
+		var vh := get_viewport_rect().size.y
+		draw_rect(Rect2(ox, oy, vw, vh), Color(0.0, 0.0, 0.0, 0.92))
+		var font := ThemeDB.fallback_font
+		draw_string(font, Vector2(ox, oy + vh * 0.5),
+			"Sitch — в разработке", HORIZONTAL_ALIGNMENT_CENTER, vw, 28, Color(0.4, 0.3, 0.2, 0.6))
+
 	_draw_hud(ox, oy)
 
 	match current_state:
 		C.STATE.PAUSE: _draw_overlay(ox, oy, "ПАУЗА",   Color(0.0, 0.0, 0.0, 0.55), "ESC — продолжить")
 		C.STATE.LOST:  _draw_overlay(ox, oy, "ГИБЕЛЬ",  Color(0.35, 0.0, 0.0, 0.65), "Enter — в главное меню")
-		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Enter — продолжить" if current_level < 3 else "Enter — в главное меню")
+		C.STATE.WON:   _draw_overlay(ox, oy, "ПОБЕДА",  Color(0.0, 0.18, 0.0, 0.60), "Enter — продолжить" if current_level < 4 else "Enter — в главное меню")
+
+	# Название комнаты — появляется при входе, потом тухнет (стиль SABBATH)
+	if _room_title_t < 4.5:
+		var font  := ThemeDB.fallback_font
+		var vw    := float(C.VIEWPORT_WIDTH)
+		var vh    := get_viewport_rect().size.y
+		var ta    := clampf(_room_title_t / 0.8, 0.0, 1.0) * clampf((4.5 - _room_title_t) / 1.0, 0.0, 1.0)
+		var tp    := (sin(_room_title_t * 1.8) * 0.04 + 0.96) * ta
+		var ty    := oy + vh * 0.22
+		draw_string(font, Vector2(ox+4, ty+5),  level_name,
+			HORIZONTAL_ALIGNMENT_CENTER, vw, 88, Color(0.10, 0.02, 0.01, 0.55*tp))
+		draw_string(font, Vector2(ox-1, ty-1),  level_name,
+			HORIZONTAL_ALIGNMENT_CENTER, vw, 91, Color(0.95, 0.65, 0.15, 0.16*tp))
+		draw_string(font, Vector2(ox,   ty),    level_name,
+			HORIZONTAL_ALIGNMENT_CENTER, vw, 88, Color(0.98, 0.90, 0.62, tp))
+
+	# Фейд перехода между уровнями — поверх всего
+	if _fade_t > 0.0:
+		draw_rect(Rect2(ox, oy, float(C.VIEWPORT_WIDTH), get_viewport_rect().size.y),
+			Color(0.0, 0.0, 0.0, _fade_t))
 
 	# Экран фокуса — показывается пока не кликнули
 	if not _focused:
@@ -560,7 +635,7 @@ func _draw() -> void:
 			"КЛИКНИ НА ЭКРАН ЧТОБЫ НАЧАТЬ",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(1.0, 0.85, 0.3))
 
-func _draw_background(ox: float, _oy: float) -> void:
+func _draw_background(ox: float, oy: float) -> void:
 	var vw := float(C.VIEWPORT_WIDTH)
 	var vh := get_viewport_rect().size.y
 
