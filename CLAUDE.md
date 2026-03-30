@@ -655,6 +655,97 @@ git status && git log --oneline -8
 ```
 
 **Git status сессии 8:**
-- 4 файла изменены (uncommitted): constants.gd, player.gd, enemy.gd, main.gd
-- Новые папки (untracked): assets/sprites/knight_*/
-- Готово к 2 коммитам
+- Все изменения смержены в main
+
+---
+
+### Сессия 9 — 2026-03-30
+**Сделано:** Cinematic intro polish, canvas expand, система навигации по комнатам.
+
+#### Cinematic intro — доработка (merge из `mountains-experiment`)
+
+- ✅ **Canvas expand:** `window/stretch/aspect="expand"` в project.godot — viewport растягивается вверх/вниз, чёрных полос больше нет. Все `vh` заменены на `get_viewport_rect().size.y`
+- ✅ **Луна из-за гор:** Луна стартует на `vh*0.80`, видна только когда поднялась выше пиков (`moon_emerge_a = clamp((mtn_peak_y - moon_y) / 90.0, 0, 1)`)
+- ✅ **Горы после луны:** `land_a` начинается с кадра 150, быстрый fade (80 кадров)
+- ✅ **Лучи после остановки луны:** Начинаются с кадра 300, 200-кадровый fade, независимое мерцание каждого луча (два синуса с разными частотами `f1`/`f2` + фаза `ph`)
+- ✅ **Удалены тёмные прямоугольники:** 4-слойный dark overlay + dark circle убраны из `_draw_menu()` и `_draw_menu_intro()`
+- ✅ **Ветка `mountains-experiment`** смержена в main, сохранена с тегом
+
+#### Система комнат и навигации
+
+**Структура уровней (новая):**
+| idx | Название | Статус |
+|-----|---------|--------|
+| 0 | TESTROOM | Песочница для экспериментов |
+| 1 | Sitch | WIP — тёмный экран, placeholder |
+| 2 | Сожжённые Сёла | Полный уровень |
+| 3 | Подступы к Замку | Полный уровень |
+| 4 | Цитадель | Полный уровень |
+
+**Переходы между комнатами:**
+- Правый край (`x >= level_width - 80`) → fade out → `load_level(current + 1)`
+- Левый край (`x <= 80`, если `current > 0`) → fade out → `load_level(current - 1)`
+- `_spawn_right = true` при возврате → спавн в правом конце комнаты
+- `_fade_t / _fade_dir / _fade_next` — state-machine (0=idle, 1=темнеем, 2=светлеем), скорость `delta * 2.0` (~0.5с)
+
+**Название комнаты:**
+- `_room_title_t` сбрасывается в 0 при `load_level()`
+- Отображается 4.5с: fade-in 0.8с, fade-out 1.0с, позиция `oy + vh*0.22`
+- Стиль идентичен SABBATH: тень + обводка + основной текст size 88
+
+**Sitch room:**
+- Тёмный экран с текстом "Sitch — в разработке"
+- Движение/физика работают, врагов нет
+- Можно войти из TESTROOM (правый край) и вернуться (левый край)
+
+**TESTROOM background:**
+- Попытка зелёных холмов (A. Rocha concept art style) — отклонена пользователем
+- Возвращён стандартный Castlevania фон — `_draw_bg_testroom()` и `_draw_fir()` удалены
+
+#### Ключевые технические решения
+
+| Решение | Почему |
+|---------|--------|
+| `moon_emerge_a` — геометрическое условие | Alpha на луне недостаточно — горы semi-transparent в начале fade-in |
+| Два синуса на луч (f1/f2 + ph) | Один синус = все лучи мерцают синхронно. Два с разными частотами = независимое поведение |
+| Fade `delta * 2.0` | ~0.5 секунды черноты — достаточно чтобы смена не была резкой |
+| `_spawn_right` flag | Передаётся через load_level, сбрасывается внутри — без глобального состояния |
+
+#### Known Issues / Риски
+
+| Приоритет | Проблема |
+|-----------|---------|
+| 🟡 Средний | Sitch — только тёмный экран, контент не готов |
+| 🟡 Средний | `_check_win()` закомментирован — нет условия победы в TESTROOM/Sitch |
+| 🟢 Низкий | `mountains_preview.png` в корне (untracked) — удалить или gitignore |
+| 🟢 Низкий | `DEBUG_HITBOX = true` — выключить перед показом |
+
+#### Next Steps (приоритет следующей сессии)
+
+1. **Sitch room** — нарисовать фон, расставить платформы/врагов/нарратив
+2. **Win condition** — что происходит после Цитадели (idx 4)? Экран победы или финальный босс?
+3. **Боссфайт Князя** — 4 фазы (охрана → копьё → охрана → дуэль), триггер одержимости в фазе 4
+4. **Звуки** — удар, блок, рывок, одержимость (CC0, kenney.nl)
+5. **Отключить DEBUG_HITBOX** перед любым показом
+
+#### Команды запуска
+
+```bash
+# Открыть проект
+open "/Users/andriidiablo/Documents/Dark Fantasy concept/project.godot"
+
+# Парс-чек без запуска:
+"/Users/andriidiablo/Desktop/Godot.app/Contents/MacOS/Godot" \
+  --headless --path "/Users/andriidiablo/Documents/Dark Fantasy concept" \
+  --check-only --script scripts/main.gd
+
+# Git
+cd "/Users/andriidiablo/Documents/Dark Fantasy concept"
+git status && git log --oneline -8
+
+# Запуск: F5 в Godot Editor
+```
+
+**Git status сессии 9:**
+- Все изменения закоммичены в main
+- Remote: впереди origin/main (нужен push)
